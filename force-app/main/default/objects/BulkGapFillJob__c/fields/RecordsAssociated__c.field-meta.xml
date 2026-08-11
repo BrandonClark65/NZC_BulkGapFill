@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>RecordsAssociated__c</fullName>
+    <description
+  >Orphan energy use records re-parented to a carbon footprint during the run.</description>
+    <label>Records Associated</label>
+    <precision>9</precision>
+    <scale>0</scale>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

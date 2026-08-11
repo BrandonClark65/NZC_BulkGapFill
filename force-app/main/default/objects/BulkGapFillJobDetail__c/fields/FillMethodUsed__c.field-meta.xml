@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>FillMethodUsed__c</fullName>
+    <description
+  >Method actually applied, which may differ from the run default when the default was not viable for this asset.</description>
+    <label>Fill Method Used</label>
+    <length>255</length>
+    <required>false</required>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

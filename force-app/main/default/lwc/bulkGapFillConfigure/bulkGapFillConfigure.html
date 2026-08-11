@@ -1,0 +1,158 @@
+<template>
+  <template lwc:if={hasSchemaProblems}>
+    <div class="slds-box slds-theme_warning slds-var-m-bottom_medium">
+      <p class="slds-text-title_bold">
+        This org is missing Net Zero Cloud metadata this tool depends on:
+      </p>
+      <ul class="slds-list_dotted">
+        <template for:each={schemaProblems} for:item="problem">
+          <li key={problem}>{problem}</li>
+        </template>
+      </ul>
+    </div>
+  </template>
+
+  <lightning-layout multiple-rows="true" pull-to-boundary="small">
+    <lightning-layout-item
+      size="12"
+      medium-device-size="6"
+      padding="around-small"
+    >
+      <lightning-combobox
+        label="Reporting Year"
+        value={reportingYear}
+        options={reportingYearOptions}
+        onchange={handleYearChange}
+        required
+      ></lightning-combobox>
+    </lightning-layout-item>
+
+    <lightning-layout-item
+      size="12"
+      medium-device-size="6"
+      padding="around-small"
+    >
+      <lightning-combobox
+        label="Default Fill Method"
+        value={defaultFillMethod}
+        options={fillMethodOptions}
+        onchange={handleMethodChange}
+        placeholder="Select a method"
+        required
+      ></lightning-combobox>
+    </lightning-layout-item>
+
+    <template lwc:if={isManualMethod}>
+      <lightning-layout-item
+        size="12"
+        medium-device-size="6"
+        padding="around-small"
+      >
+        <lightning-input
+          type="number"
+          label="Manual Daily Rate"
+          field-level-help="Consumption per day applied across every gap, in the unit of the existing records."
+          value={manualDailyRate}
+          onchange={handleManualRateChange}
+          min="0"
+          step="0.0001"
+          required
+        ></lightning-input>
+      </lightning-layout-item>
+    </template>
+
+    <lightning-layout-item
+      size="12"
+      medium-device-size="6"
+      padding="around-small"
+    >
+      <lightning-dual-listbox
+        label="Asset Types"
+        source-label="Available"
+        selected-label="Included"
+        options={assetTypeOptions}
+        value={selectedAssetTypes}
+        onchange={handleAssetTypesChange}
+        field-level-help="Leave empty to include every stationary asset type."
+      ></lightning-dual-listbox>
+    </lightning-layout-item>
+
+    <lightning-layout-item
+      size="12"
+      medium-device-size="6"
+      padding="around-small"
+    >
+      <lightning-input
+        label="Fuel Types"
+        value={fuelTypesRaw}
+        onchange={handleFuelTypesChange}
+        placeholder="Electricity, Natural Gas"
+        field-level-help="Comma separated. Leave empty to gap fill every fuel type present on the asset."
+      ></lightning-input>
+    </lightning-layout-item>
+
+    <lightning-layout-item
+      size="12"
+      medium-device-size="6"
+      padding="around-small"
+    >
+      <lightning-input
+        type="number"
+        label="Batch Size"
+        value={batchSize}
+        onchange={handleBatchSizeChange}
+        min="1"
+        max="2000"
+        field-level-help="Footprints per chunk. Each one can fan out into many child inserts, so keep this conservative."
+      ></lightning-input>
+    </lightning-layout-item>
+
+    <lightning-layout-item size="12" padding="around-small">
+      <lightning-input
+        type="checkbox"
+        label="Dry run — detect and report gaps without creating records"
+        checked={isDryRun}
+        onchange={handleDryRunChange}
+      ></lightning-input>
+      <lightning-input
+        type="checkbox"
+        label="Associate orphan energy use records before detecting gaps"
+        checked={associateOrphans}
+        onchange={handleAssociateOrphansChange}
+      ></lightning-input>
+      <lightning-input
+        type="checkbox"
+        label="Skip footprints that already have gap-filled records for this period"
+        checked={skipAlreadyFilled}
+        onchange={handleSkipFilledChange}
+      ></lightning-input>
+    </lightning-layout-item>
+
+    <lightning-layout-item size="12" padding="around-small">
+      <template lwc:if={scopeSummary}>
+        <p class="slds-text-body_small slds-var-m-bottom_x-small">
+          {scopeSummary}
+        </p>
+      </template>
+      <lightning-button
+        label="Check Scope"
+        onclick={handleCountScope}
+        disabled={isCounting}
+        class="slds-var-m-right_x-small"
+      ></lightning-button>
+      <lightning-button
+        variant="brand"
+        label={launchLabel}
+        onclick={handleLaunch}
+        disabled={launchDisabled}
+      ></lightning-button>
+    </lightning-layout-item>
+  </lightning-layout>
+
+  <template lwc:if={isLaunching}>
+    <lightning-spinner
+      alternative-text="Launching"
+      size="small"
+    ></lightning-spinner>
+  </template>
+</template>

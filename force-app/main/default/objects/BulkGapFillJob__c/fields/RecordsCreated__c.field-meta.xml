@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>RecordsCreated__c</fullName>
+    <description
+  >Total gap-filled energy use records inserted. Always zero for a dry run.</description>
+    <label>Records Created</label>
+    <precision>9</precision>
+    <scale>0</scale>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>CompletedAt__c</fullName>
+    <description
+  >When finish() ran and the job reached a terminal status.</description>
+    <label>Completed At</label>
+    <type>DateTime</type>
+</CustomField>

@@ -5,7 +5,7 @@
       "default": true
     }
   ],
-  "name": "deletefolder",
+  "name": "NZC_BulkGapFill",
   "namespace": "",
   "sfdcLoginUrl": "https://login.salesforce.com",
   "sourceApiVersion": "67.0"
