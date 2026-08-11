@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
 <Package xmlns="http://soap.sforce.com/2006/04/metadata">
     <types>
         <members>*</members>
@@ -25,8 +25,25 @@
         <name>AuraDefinitionBundle</name>
     </types>
     <types>
+        <members>BulkGapFillJob__c</members>
+        <members>BulkGapFillJobDetail__c</members>
+        <name>CustomObject</name>
+    </types>
+    <types>
+        <members>Bulk_Gap_Fill</members>
+        <name>CustomTab</name>
+    </types>
+    <types>
+        <members>Bulk_Gap_Fill</members>
+        <name>FlexiPage</name>
+    </types>
+    <types>
         <members>*</members>
         <name>LightningComponentBundle</name>
+    </types>
+    <types>
+        <members>Bulk_Gap_Fill_Admin</members>
+        <name>PermissionSet</name>
     </types>
     <types>
         <members>*</members>

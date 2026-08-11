@@ -30,6 +30,9 @@ node_modules/
 # Eslint cache
 .eslintcache
 
+# Generated Apex reference docs (regenerate with `npm run docs`)
+docs/
+
 # MacOS system files
 .DS_Store
 

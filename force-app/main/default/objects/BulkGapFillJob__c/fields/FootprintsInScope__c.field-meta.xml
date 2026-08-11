@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>FootprintsInScope__c</fullName>
+    <description
+  >Count of carbon footprint records matched by the filter at launch time.</description>
+    <label>Footprints In Scope</label>
+    <precision>9</precision>
+    <scale>0</scale>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

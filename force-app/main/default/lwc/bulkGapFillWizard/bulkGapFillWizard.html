@@ -1,0 +1,50 @@
+<template>
+  <lightning-card title="Bulk Gap Fill" icon-name="standard:environment_source">
+    <div class="slds-var-p-horizontal_medium">
+      <lightning-progress-indicator
+        current-step={currentStep}
+        type="base"
+        variant="base"
+        has-error="false"
+      >
+        <lightning-progress-step
+          label="Configure Run"
+          value="configure"
+        ></lightning-progress-step>
+        <lightning-progress-step
+          label="Monitor Run"
+          value="monitor"
+        ></lightning-progress-step>
+        <lightning-progress-step
+          label="Review Results"
+          value="results"
+        ></lightning-progress-step>
+      </lightning-progress-indicator>
+    </div>
+
+    <div class="slds-var-p-around_medium">
+      <template lwc:if={isConfigure}>
+        <c-bulk-gap-fill-configure
+          onlaunched={handleLaunched}
+        ></c-bulk-gap-fill-configure>
+      </template>
+
+      <template lwc:elseif={isMonitor}>
+        <c-bulk-gap-fill-monitor
+          job-id={jobId}
+          onruncomplete={handleRunComplete}
+          onskiptoresults={handleSkipToResults}
+          onstartover={handleStartOver}
+        ></c-bulk-gap-fill-monitor>
+      </template>
+
+      <template lwc:elseif={isResults}>
+        <c-bulk-gap-fill-results
+          job-id={jobId}
+          onstartover={handleStartOver}
+          onbacktomonitor={handleBackToMonitor}
+        ></c-bulk-gap-fill-results>
+      </template>
+    </div>
+  </lightning-card>
+</template>

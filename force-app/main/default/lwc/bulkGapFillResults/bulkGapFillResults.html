@@ -1,0 +1,77 @@
+<template>
+  <div
+    class="slds-grid slds-wrap slds-var-m-bottom_small slds-grid_vertical-align-end"
+  >
+    <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+      <p class="slds-text-heading_small">{summaryLabel}</p>
+    </div>
+    <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+      <lightning-combobox
+        label="Filter by Status"
+        value={statusFilter}
+        options={statusFilterOptions}
+        onchange={handleFilterChange}
+        variant="label-inline"
+      ></lightning-combobox>
+    </div>
+  </div>
+
+  <template lwc:if={hasDetails}>
+    <div class="slds-scrollable_y" style="height: 24rem">
+      <lightning-datatable
+        key-field="Id"
+        data={details}
+        columns={columns}
+        hide-checkbox-column
+        column-widths-mode="auto"
+      ></lightning-datatable>
+    </div>
+
+    <template lwc:if={hasMore}>
+      <div class="slds-align_absolute-center slds-var-m-top_small">
+        <lightning-button
+          label="Load More"
+          onclick={handleLoadMore}
+        ></lightning-button>
+      </div>
+    </template>
+  </template>
+
+  <template lwc:else>
+    <template lwc:if={isLoading}>
+      <lightning-spinner
+        alternative-text="Loading results"
+        size="small"
+      ></lightning-spinner>
+    </template>
+    <template lwc:else>
+      <p class="slds-text-body_regular slds-var-p-vertical_medium">
+        No detail rows for this run yet.
+      </p>
+    </template>
+  </template>
+
+  <div class="slds-var-m-top_medium">
+    <lightning-button
+      label="Export CSV"
+      onclick={handleExportCsv}
+      disabled={exportDisabled}
+      class="slds-var-m-right_x-small"
+    ></lightning-button>
+    <lightning-button
+      label="Refresh"
+      onclick={handleRefresh}
+      class="slds-var-m-right_x-small"
+    ></lightning-button>
+    <lightning-button
+      label="Back to Monitor"
+      onclick={handleBackToMonitor}
+      class="slds-var-m-right_x-small"
+    ></lightning-button>
+    <lightning-button
+      variant="brand"
+      label="New Run"
+      onclick={handleStartOver}
+    ></lightning-button>
+  </div>
+</template>
