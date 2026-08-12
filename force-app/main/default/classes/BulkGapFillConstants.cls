@@ -129,10 +129,13 @@ public with sharing class BulkGapFillConstants {
   public static final String FIELD_ENERGY_USE_CONSUMPTION_UNIT = 'FuelConsumptionUnit';
 
   /**
-   * Which fill method produced a record. The object carries no gap-filled boolean,
-   * so this doubles as the marker: a populated value means the record was estimated
-   * rather than measured, and that is what separates gap fills from actuals.
+   * Marks a record as generated rather than measured. This is what the native gap
+   * fill process sets, so the batch sets it too and reads it to tell estimates from
+   * actuals — there is no gap-filled boolean of its own on the object.
    */
+  public static final String FIELD_ENERGY_USE_IS_SYSTEM_GENERATED = 'IsSystemGeneratedRecord';
+
+  /** Which fill method produced a record, for the audit trail. */
   public static final String FIELD_ENERGY_USE_FILL_METHOD = 'DataGapFillingMethodName';
 
   /** Energy use fields the batch selects, beyond `Id`. */
@@ -143,6 +146,7 @@ public with sharing class BulkGapFillConstants {
     FIELD_ENERGY_USE_END,
     FIELD_ENERGY_USE_CONSUMPTION,
     FIELD_ENERGY_USE_CONSUMPTION_UNIT,
+    FIELD_ENERGY_USE_IS_SYSTEM_GENERATED,
     FIELD_ENERGY_USE_FILL_METHOD
   };
 

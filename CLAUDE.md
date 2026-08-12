@@ -84,11 +84,14 @@ The benchmark header holds no intensity figure itself. It lives on the child
 - `FuelType` — electricity, natural gas, diesel, etc.
 - `StartDate` / `EndDate` — consumption period
 - `FuelConsumption` + `FuelConsumptionUnit`
+- `IsSystemGeneratedRecord` (Boolean) — set by the native gap fill process to mark a
+  record as generated rather than measured
 - `DataGapFillingMethodName` — which method produced the record (audit trail)
 
-There is **no** gap-filled boolean on this object. `DataGapFillingMethodName` is the
-marker: populated means estimated, blank means measured. Anything that needs to tell
-gap fills from actuals — reporting views, `skipAlreadyFilled` — keys off that.
+There is no gap-filled boolean of its own on this object. `IsSystemGeneratedRecord` is
+the marker the standard process uses, so anything separating estimates from actuals —
+reporting views, `skipAlreadyFilled` — keys off that, and our generated records set it
+alongside `DataGapFillingMethodName`.
 
 ---
 
@@ -170,7 +173,7 @@ For each `StnryAssetCrbnFtprnt` record in scope:
 
 - **`BulkGapFillBatch`** — implements `Database.Batchable<SObject>`, `Database.Stateful`
   - `start()`: queries all `StnryAssetCrbnFtprnt` records matching user-selected filters (year, asset type, specific assets, etc.)
-  - `execute()`: for each record, runs gap detection, applies chosen fill method, inserts new `StnryAssetEnrgyUse` records with `DataGapFillingMethodName` stamped
+  - `execute()`: for each record, runs gap detection, applies chosen fill method, inserts new `StnryAssetEnrgyUse` records with `IsSystemGeneratedRecord = true` and `DataGapFillingMethodName` stamped
   - `finish()`: updates a custom `BulkGapFillJob__c` record with status, counts, and any errors
 - **`BulkGapFillService`** — stateless service class with the gap detection and fill calculation logic (called by batch; also callable from unit tests independently)
 - **`BulkGapFillJobScheduler`** — optional `Schedulable` wrapper to allow scheduled runs
@@ -214,7 +217,7 @@ A custom LWC (or small set of LWCs) that provides a portfolio-level gap fill exp
 - Salesforce API version: target **v62.0+** (Net Zero Cloud objects stable from v54.0)
 - All Net Zero Cloud objects (`StnryAssetEnvrSrc`, `StnryAssetCrbnFtprnt`, `StnryAssetEnrgyUse`, etc.) are fully queryable and writable via Apex — no managed package restrictions on CRUD
 - The native gap fill wizard is in a managed package; do not try to extend or call it — build independently
-- Gap-filled records are tagged by `DataGapFillingMethodName` — the object has no gap-filled boolean — so actuals-only reporting views should filter on that field being blank
+- Gap-filled records are tagged by `IsSystemGeneratedRecord`, the same flag the native process sets, so actuals-only reporting views should filter on it being false
 - Batch size: start with 50 records per chunk; each chunk may generate many child inserts, so stay conservative to avoid governor limits
 - All DML should use `Database.insert(records, false)` with partial success handling so one bad asset doesn't abort the entire batch
 

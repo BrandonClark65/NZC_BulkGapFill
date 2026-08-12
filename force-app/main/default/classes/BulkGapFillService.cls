@@ -104,9 +104,9 @@ public with sharing class BulkGapFillService {
     public String consumptionUnit;
 
     /**
-     * Whether this record was estimated rather than measured. Derived by the
-     * caller from `DataGapFillingMethodName` being populated — the energy use
-     * object carries no boolean of its own.
+     * Whether this record was generated rather than measured, from
+     * `IsSystemGeneratedRecord` — the flag the native gap fill process sets, so
+     * this is true for fills from either route.
      */
     public Boolean isGapFilled;
 
