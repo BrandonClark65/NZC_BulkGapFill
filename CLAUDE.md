@@ -57,7 +57,9 @@ both benchmark fill methods resolve against the same object.
 ### Key Fields on `StnryAssetCrbnFtprnt`
 
 - `StnryAssetEnvrSrcId` — parent asset lookup
-- `ReportingYear` — fiscal/calendar year being reported
+- `ReportingYear` — fiscal/calendar year being reported. A **text** column, so SOQL
+  binds must be strings; binding an Integer throws "invalid bind expression type of
+  Integer for column of type String"
 - `BuildingEnergyIntensityId` — lookup to custom BEI (gates Building BEI fill method)
 - `RegionalBldgEnergyIntensityId` — lookup to the CBECS benchmark
 - Scope 1, 2, 3 rollup fields (auto-calculated from child energy use records)

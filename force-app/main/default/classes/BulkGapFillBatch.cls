@@ -55,7 +55,9 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
     this.scopeFootprintIds = request.carbonFootprintIds;
     this.scopeAssetIds = request.stationaryAssetIds;
     this.scopeAssetTypes = request.assetTypes;
-    this.scopeYear = request.reportingYear;
+    this.scopeYear = BulkGapFillConstants.reportingYearBind(
+      request.reportingYear
+    );
   }
 
   // ---- start ------------------------------------------------------------
@@ -130,7 +132,8 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
   private List<Id> scopeFootprintIds;
   private List<Id> scopeAssetIds;
   private List<String> scopeAssetTypes;
-  private Integer scopeYear;
+  // Text, not Integer: ReportingYear is a string column on the NZC objects.
+  private String scopeYear;
 
   // ---- execute ----------------------------------------------------------
 
@@ -473,7 +476,9 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
     }
 
     Set<Id> assetIds = currentFootprintByAsset.keySet();
-    Integer priorYear = request.reportingYear - 1;
+    String priorYear = BulkGapFillConstants.reportingYearBind(
+      request.reportingYear - 1
+    );
 
     Map<Id, Id> priorFootprintToCurrent = new Map<Id, Id>();
     String footprintSoql =

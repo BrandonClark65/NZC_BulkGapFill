@@ -30,6 +30,133 @@
         <enabled>true</enabled>
     </classAccesses>
 
+    <!--
+      Field-level security for every custom field the batch and controller touch.
+      Object permissions alone are not enough: custom fields deploy with FLS off,
+      so without these the job insert fails with fields being inaccessible.
+
+      Universally required fields (Status__c, ReportingYear__c, DefaultFillMethod__c)
+      and the master-detail (BulkGapFillJobDetail__c.BulkGapFillJob__c) are absent by
+      necessity - Salesforce rejects field permissions on them, as they are always
+      visible and editable.
+    -->
+    <fieldPermissions>
+        <field>BulkGapFillJob__c.AsyncApexJobId__c</field>
+        <readable>true</readable>
+        <editable>true</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>BulkGapFillJob__c.CompletedAt__c</field>
+        <readable>true</readable>
+        <editable>true</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>BulkGapFillJob__c.ErrorCount__c</field>
+        <readable>true</readable>
+        <editable>true</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>BulkGapFillJob__c.ErrorLog__c</field>
+        <readable>true</readable>
+        <editable>true</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>BulkGapFillJob__c.FilterCriteria__c</field>
+        <readable>true</readable>
+        <editable>true</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>BulkGapFillJob__c.FootprintsInScope__c</field>
+        <readable>true</readable>
+        <editable>true</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>BulkGapFillJob__c.FootprintsProcessed__c</field>
+        <readable>true</readable>
+        <editable>true</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>BulkGapFillJob__c.GapsFound__c</field>
+        <readable>true</readable>
+        <editable>true</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>BulkGapFillJob__c.IsDryRun__c</field>
+        <readable>true</readable>
+        <editable>true</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>BulkGapFillJob__c.RecordsAssociated__c</field>
+        <readable>true</readable>
+        <editable>true</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>BulkGapFillJob__c.RecordsCreated__c</field>
+        <readable>true</readable>
+        <editable>true</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>BulkGapFillJob__c.StartedAt__c</field>
+        <readable>true</readable>
+        <editable>true</editable>
+    </fieldPermissions>
+
+    <fieldPermissions>
+        <field>BulkGapFillJobDetail__c.CarbonFootprintId__c</field>
+        <readable>true</readable>
+        <editable>true</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>BulkGapFillJobDetail__c.EnergyFilledUnit__c</field>
+        <readable>true</readable>
+        <editable>true</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>BulkGapFillJobDetail__c.EnergyFilled__c</field>
+        <readable>true</readable>
+        <editable>true</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>BulkGapFillJobDetail__c.ErrorMessage__c</field>
+        <readable>true</readable>
+        <editable>true</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>BulkGapFillJobDetail__c.FillMethodUsed__c</field>
+        <readable>true</readable>
+        <editable>true</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>BulkGapFillJobDetail__c.FuelType__c</field>
+        <readable>true</readable>
+        <editable>true</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>BulkGapFillJobDetail__c.GapDays__c</field>
+        <readable>true</readable>
+        <editable>true</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>BulkGapFillJobDetail__c.GapsFound__c</field>
+        <readable>true</readable>
+        <editable>true</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>BulkGapFillJobDetail__c.RecordsCreated__c</field>
+        <readable>true</readable>
+        <editable>true</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>BulkGapFillJobDetail__c.StationaryAssetId__c</field>
+        <readable>true</readable>
+        <editable>true</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>BulkGapFillJobDetail__c.StationaryAssetName__c</field>
+        <readable>true</readable>
+        <editable>true</editable>
+    </fieldPermissions>
+
     <objectPermissions>
         <object>BulkGapFillJob__c</object>
         <allowCreate>true</allowCreate>
