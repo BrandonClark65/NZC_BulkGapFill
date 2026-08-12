@@ -19,7 +19,7 @@
 public with sharing class BulkGapFillConstants {
   // ---- Fill methods -----------------------------------------------------
   // These tokens are written to BulkGapFillJob__c.DefaultFillMethod__c and to
-  // the GapFillMethod field on generated energy use records, so they must match
+  // DataGapFillingMethodName on generated energy use records, so they must match
   // the picklist API values on both.
   public static final String METHOD_REGIONAL_BEI = 'Regional BEI';
   public static final String METHOD_BUILDING_BEI = 'Building BEI';
@@ -52,16 +52,120 @@ public with sharing class BulkGapFillConstants {
 
   // ---- Net Zero Cloud object API names ----------------------------------
   public static final String OBJ_ASSET = 'StnryAssetEnvrSrc';
-  public static final String OBJ_FOOTPRINT = 'StationaryAssetCarbonFootprint';
-  public static final String OBJ_ENERGY_USE = 'StationaryAssetEnergyUse';
-  public static final String OBJ_BUILDING_BEI = 'BldgEnergyIntensityValue';
-  public static final String OBJ_REGIONAL_BEI = 'RegionalBldgEnergyIntensity';
+  public static final String OBJ_FOOTPRINT = 'StnryAssetCrbnFtprnt';
+  public static final String OBJ_ENERGY_USE = 'StnryAssetEnrgyUse';
 
-  // Field holding the benchmark itself, in kWh per square metre per year.
-  // TODO: verify against the target org - the BEI objects expose several
-  // intensity fields and the correct one depends on how BEI Builder was configured.
-  public static final String FIELD_BUILDING_BEI_VALUE = 'EnergyIntensityValue';
-  public static final String FIELD_REGIONAL_BEI_VALUE = 'EnergyIntensityValue';
+  /**
+   * Benchmark header record, and the target of every BEI lookup. There is no
+   * separate regional BEI object: the regional lookup carried on the stationary
+   * asset points at a building energy intensity record too, so both benchmark
+   * fill methods resolve their value from this one object.
+   */
+  public static final String OBJ_BEI = 'BldgEnrgyIntensity';
+
+  /**
+   * Per-fuel-type values belonging to a benchmark. The intensity figure the BEI
+   * fill methods need lives here, not on the header, so a benchmark is resolved
+   * by (benchmark record, fuel type) rather than by record alone.
+   */
+  public static final String OBJ_BEI_VALUE = 'BldgEnrgyIntensityVal';
+
+  // ---- StnryAssetCrbnFtprnt fields --------------------------------------
+  /** Parent asset lookup. */
+  public static final String FIELD_FOOTPRINT_ASSET = 'StnryAssetEnvrSrcId';
+
+  /** Reporting year, the primary scope filter for a run. */
+  public static final String FIELD_FOOTPRINT_YEAR = 'ReportingYear';
+
+  /**
+   * Custom (BEI Builder) benchmark lookup on the carbon footprint. Note the
+   * unabbreviated `Building` here against the abbreviated `Bldg` in the regional
+   * lookup below - neither field name follows the object's own spelling.
+   */
+  public static final String FIELD_BEI_LOOKUP = 'BuildingEnergyIntensityId';
+
+  /** Regional (CBECS) benchmark lookup, auto-populated for US assets. */
+  public static final String FIELD_REGIONAL_BEI_LOOKUP = 'RegionalBldgEnergyIntensityId';
+
+  /** Both BEI lookups, in the order they are selected and read. */
+  public static final List<String> BEI_LOOKUP_FIELDS = new List<String>{
+    FIELD_BEI_LOOKUP,
+    FIELD_REGIONAL_BEI_LOOKUP
+  };
+
+  /** Relationship name for traversing a footprint to its stationary asset. */
+  public static final String REL_FOOTPRINT_ASSET = 'StnryAssetEnvrSrc';
+
+  /** Footprint fields the batch selects, beyond `Id`. */
+  public static final List<String> FOOTPRINT_FIELDS = new List<String>{
+    FIELD_FOOTPRINT_ASSET,
+    FIELD_FOOTPRINT_YEAR,
+    FIELD_BEI_LOOKUP,
+    FIELD_REGIONAL_BEI_LOOKUP
+  };
+
+  // ---- StnryAssetEnvrSrc fields -----------------------------------------
+  public static final String FIELD_ASSET_NAME = 'Name';
+  public static final String FIELD_ASSET_TYPE = 'StationaryAssetType';
+  public static final String FIELD_ASSET_FLOOR_AREA = 'OccupiedFloorArea';
+  public static final String FIELD_ASSET_FLOOR_AREA_UNIT = 'OccupiedFloorAreaUnit';
+
+  /** Asset fields the batch selects through `REL_FOOTPRINT_ASSET`. */
+  public static final List<String> ASSET_FIELDS = new List<String>{
+    FIELD_ASSET_NAME,
+    FIELD_ASSET_TYPE,
+    FIELD_ASSET_FLOOR_AREA,
+    FIELD_ASSET_FLOOR_AREA_UNIT
+  };
+
+  // ---- StnryAssetEnrgyUse fields ----------------------------------------
+  /** Parent lookup from an energy use record to its carbon footprint. */
+  public static final String FIELD_ENERGY_USE_FOOTPRINT = 'StnryAssetCrbnFtprntId';
+
+  public static final String FIELD_ENERGY_USE_FUEL_TYPE = 'FuelType';
+  public static final String FIELD_ENERGY_USE_START = 'StartDate';
+  public static final String FIELD_ENERGY_USE_END = 'EndDate';
+  public static final String FIELD_ENERGY_USE_CONSUMPTION = 'FuelConsumption';
+  public static final String FIELD_ENERGY_USE_CONSUMPTION_UNIT = 'FuelConsumptionUnit';
+
+  /**
+   * Marks a record as generated rather than measured. This is what the native gap
+   * fill process sets, so the batch sets it too and reads it to tell estimates from
+   * actuals — there is no gap-filled boolean of its own on the object.
+   */
+  public static final String FIELD_ENERGY_USE_IS_SYSTEM_GENERATED = 'IsSystemGeneratedRecord';
+
+  /** Which fill method produced a record, for the audit trail. */
+  public static final String FIELD_ENERGY_USE_FILL_METHOD = 'DataGapFillingMethodName';
+
+  /** Energy use fields the batch selects, beyond `Id`. */
+  public static final List<String> ENERGY_USE_FIELDS = new List<String>{
+    FIELD_ENERGY_USE_FOOTPRINT,
+    FIELD_ENERGY_USE_FUEL_TYPE,
+    FIELD_ENERGY_USE_START,
+    FIELD_ENERGY_USE_END,
+    FIELD_ENERGY_USE_CONSUMPTION,
+    FIELD_ENERGY_USE_CONSUMPTION_UNIT,
+    FIELD_ENERGY_USE_IS_SYSTEM_GENERATED,
+    FIELD_ENERGY_USE_FILL_METHOD
+  };
+
+  // ---- BldgEnrgyIntensityVal fields -------------------------------------
+  /** Master-detail to the parent benchmark. */
+  public static final String FIELD_BEI_VALUE_PARENT = 'BuildingEnergyIntensityId';
+
+  /**
+   * Fuel type a value applies to. Shares both its name and its picklist with the
+   * `FuelType` on energy use records, so the two match directly.
+   */
+  public static final String FIELD_BEI_VALUE_FUEL_TYPE = 'FuelType';
+
+  /**
+   * The benchmark figure, carried in two units. A benchmark may populate either,
+   * so both are read and normalized by `toKwhPerSquareMetre`.
+   */
+  public static final String FIELD_BEI_VALUE_KWH_M2 = 'AnnualIntensityValueInKwhM2';
+  public static final String FIELD_BEI_VALUE_KWH_SQFT = 'AnnualIntensityValueInKwhSqft';
 
   // ---- Tuning -----------------------------------------------------------
   /** Conservative default: each footprint can fan out into many child inserts. */
@@ -101,6 +205,30 @@ public with sharing class BulkGapFillConstants {
   }
 
   /**
+   * @description Normalizes a benchmark to kWh per square metre, the unit the fill
+   * math works in.
+   *
+   * A `BldgEnrgyIntensityVal` carries its figure in two units and may populate
+   * either, so the metric field is preferred and the imperial one converted as a
+   * fallback. That keeps a benchmark usable when only the imperial column is filled
+   * in, rather than skipping the fill.
+   *
+   * @param kwhPerSqM The `AnnualIntensityValueInKwhM2` figure. Wins when populated.
+   * @param kwhPerSqFt The `AnnualIntensityValueInKwhSqft` figure, used as a fallback.
+   * @return The benchmark in kWh per square metre, or null when neither is populated.
+   */
+  public static Decimal toKwhPerSquareMetre(
+    Decimal kwhPerSqM,
+    Decimal kwhPerSqFt
+  ) {
+    if (kwhPerSqM != null) {
+      return kwhPerSqM;
+    }
+    // kWh per sqft x sqft per m2 = kWh per m2.
+    return kwhPerSqFt == null ? null : kwhPerSqFt * SQFT_PER_SQM;
+  }
+
+  /**
    * @description Confirms every Net Zero Cloud object and field the solution
    * depends on actually exists and is accessible in the running org.
    *
@@ -114,12 +242,14 @@ public with sharing class BulkGapFillConstants {
     List<String> problems = new List<String>();
     Map<String, Schema.SObjectType> globals = Schema.getGlobalDescribe();
 
+    // OBJ_BEI carries no fields of its own here — it is only a lookup target —
+    // so it is checked for existence and nothing else.
     List<String> required = new List<String>{
       OBJ_ASSET,
       OBJ_FOOTPRINT,
       OBJ_ENERGY_USE,
-      OBJ_BUILDING_BEI,
-      OBJ_REGIONAL_BEI
+      OBJ_BEI,
+      OBJ_BEI_VALUE
     };
     for (String objName : required) {
       if (!globals.containsKey(objName)) {
@@ -127,12 +257,25 @@ public with sharing class BulkGapFillConstants {
       }
     }
 
-    problems.addAll(
-      checkField(globals, OBJ_BUILDING_BEI, FIELD_BUILDING_BEI_VALUE)
-    );
-    problems.addAll(
-      checkField(globals, OBJ_REGIONAL_BEI, FIELD_REGIONAL_BEI_VALUE)
-    );
+    // Every field the batch reads or writes. These are the same lists the dynamic
+    // SOQL is built from, so validation cannot drift from what actually runs.
+    Map<String, List<String>> fieldsByObject = new Map<String, List<String>>{
+      OBJ_ASSET => ASSET_FIELDS,
+      OBJ_FOOTPRINT => FOOTPRINT_FIELDS,
+      OBJ_ENERGY_USE => ENERGY_USE_FIELDS,
+      OBJ_BEI_VALUE => new List<String>{
+        FIELD_BEI_VALUE_PARENT,
+        FIELD_BEI_VALUE_FUEL_TYPE,
+        FIELD_BEI_VALUE_KWH_M2,
+        FIELD_BEI_VALUE_KWH_SQFT
+      }
+    };
+
+    for (String objName : fieldsByObject.keySet()) {
+      for (String fieldName : fieldsByObject.get(objName)) {
+        problems.addAll(checkField(globals, objName, fieldName));
+      }
+    }
     return problems;
   }
 

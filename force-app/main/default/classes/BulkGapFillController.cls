@@ -120,7 +120,7 @@ public with sharing class BulkGapFillController {
 
       options.assetTypes = describePicklist(
         BulkGapFillConstants.OBJ_ASSET,
-        'StationaryAssetType'
+        BulkGapFillConstants.FIELD_ASSET_TYPE
       );
       options.schemaProblems = BulkGapFillConstants.validateSchema();
       return options;
@@ -151,12 +151,21 @@ public with sharing class BulkGapFillController {
       List<Id> scopeAssetIds = request.stationaryAssetIds;
       List<String> scopeAssetTypes = request.assetTypes;
 
-      List<String> wheres = new List<String>{ 'ReportingYear = :scopeYear' };
+      List<String> wheres = new List<String>{
+        BulkGapFillConstants.FIELD_FOOTPRINT_YEAR + ' = :scopeYear'
+      };
       if (scopeAssetIds != null && !scopeAssetIds.isEmpty()) {
-        wheres.add('StnryAssetEnvrSrcId IN :scopeAssetIds');
+        wheres.add(
+          BulkGapFillConstants.FIELD_FOOTPRINT_ASSET + ' IN :scopeAssetIds'
+        );
       }
       if (scopeAssetTypes != null && !scopeAssetTypes.isEmpty()) {
-        wheres.add('StnryAssetEnvrSrc.StationaryAssetType IN :scopeAssetTypes');
+        wheres.add(
+          BulkGapFillConstants.REL_FOOTPRINT_ASSET +
+            '.' +
+            BulkGapFillConstants.FIELD_ASSET_TYPE +
+            ' IN :scopeAssetTypes'
+        );
       }
 
       String soql =

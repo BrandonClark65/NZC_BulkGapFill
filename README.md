@@ -2,7 +2,7 @@
 
 Portfolio-level gap filling for Salesforce Net Zero Cloud stationary assets.
 
-Salesforce's native gap fill wizard works on **one** `StationaryAssetCarbonFootprint`
+Salesforce's native gap fill wizard works on **one** `StnryAssetCrbnFtprnt`
 record at a time, only on the Commercial Building record type, and exposes no API,
 invocable action, or Flow action for automation. This project replicates that
 wizard's logic as Batch Apex and puts a portfolio-level LWC in front of it, so an
@@ -75,7 +75,7 @@ Each derives a daily consumption rate, then multiplies by the gap's inclusive da
 | Method                      | Daily rate                        | Requires                                           |
 | --------------------------- | --------------------------------- | -------------------------------------------------- |
 | Regional BEI                | `(BEI × floorAreaSqM) / 365`      | `RegionalBldgEnergyIntensityId` on the footprint   |
-| Building BEI                | `(BEI × floorAreaSqM) / 365`      | `BldgEnergyIntensityId` on the footprint           |
+| Building BEI                | `(BEI × floorAreaSqM) / 365`      | `BuildingEnergyIntensityId` on the footprint       |
 | Previous Year Daily Average | `priorYearTotal / 365`            | Prior-year records for the same fuel type          |
 | Current Year Daily Average  | `currentYearTotal / daysWithData` | At least one current-year record for the fuel type |
 | Manual                      | operator-supplied                 | A daily rate on the request                        |
@@ -176,16 +176,27 @@ touching only custom objects.
 
 Known gaps in this implementation, so nobody discovers them the hard way:
 
-- **NZC API names are unverified.** The names in `BulkGapFillConstants` follow the
-  project spec but have not been confirmed against an org with Net Zero Cloud
-  installed. The BEI value fields (`FIELD_BUILDING_BEI_VALUE`,
-  `FIELD_REGIONAL_BEI_VALUE`) are the least certain and are marked with a `TODO`.
+- **Some NZC API names are unverified.** Every object name and every BEI field in
+  `BulkGapFillConstants` is confirmed. The rest — the energy use, footprint, and asset
+  field names carried over from the project spec — have not been checked against an org
+  with Net Zero Cloud installed. `validateSchema()` now covers all of them, and the
+  dynamic SOQL is built from the same lists it validates, so a name cannot pass
+  validation while the queries use something else. Run it against the target org before
+  the first deploy — the queries are dynamic, so a clean deploy proves nothing.
+- **A benchmark missing the fuel type is skipped, quietly.** Intensity values are keyed
+  by fuel type on the child `BldgEnrgyIntensityVal` records. When a benchmark has no row
+  for the fuel type being filled, the fill resolves to a **Skipped** detail row rather
+  than borrowing another fuel type's figure — safe, but easy to miss across a large run.
+  Dry-run first and check the detail rows.
 - **Orphan association is not implemented.** `associateOrphans` is accepted on the
   request and surfaced in the UI, but no matching logic runs; `RecordsAssociated__c`
   stays at zero. The matching rule is org-specific.
 - **`skipAlreadyFilled` is not enforced.** It is carried on the request but not yet
   applied in `execute()`, so re-running against the same period will create duplicate
   gap-filled records. Use dry run and check the detail rows before a repeat run.
+  `EnergyRecord.isGapFilled` is already populated for when it is implemented, from
+  `IsSystemGeneratedRecord` — the flag the native process sets, so records filled by
+  either route count.
 - **No end-to-end batch test.** `BulkGapFillBatch` has no test class, because
   exercising it requires NZC data. Coverage will be short of the 75% deployment
   threshold until that exists.

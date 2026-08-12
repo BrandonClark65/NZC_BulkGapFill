@@ -444,4 +444,21 @@ private class BulkGapFillServiceTest {
     );
     Assert.isNull(BulkGapFillConstants.toSquareMetres(null, 'sqft'));
   }
+
+  @IsTest
+  static void benchmarkNormalizesToKwhPerSquareMetre() {
+    Assert.areEqual(
+      200,
+      BulkGapFillConstants.toKwhPerSquareMetre(200, 18.58),
+      'The metric figure wins when both are populated'
+    );
+
+    Decimal converted = BulkGapFillConstants.toKwhPerSquareMetre(null, 10);
+    Assert.areEqual(107.639, converted, '10 kWh/sqft is 107.639 kWh/m2');
+
+    Assert.isNull(
+      BulkGapFillConstants.toKwhPerSquareMetre(null, null),
+      'Neither unit populated leaves the benchmark unresolved'
+    );
+  }
 }

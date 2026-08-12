@@ -1,6 +1,6 @@
 /**
- * @description Runs bulk gap filling across every `StationaryAssetCarbonFootprint`
- * matching the request's filters, replacing the native one-asset-at-a-time wizard.
+ * @description Runs bulk gap filling across every `StnryAssetCrbnFtprnt` matching
+ * the request's filters, replacing the native one-asset-at-a-time wizard.
  *
  * Queries are built as dynamic SOQL against the object and field names declared in
  * `BulkGapFillConstants`. That is deliberate: Net Zero Cloud API names vary across
@@ -65,7 +65,7 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
    * in scope.
    * @param bc The batch context, whose job id is stamped onto the job record so the
    *        monitor UI can poll `AsyncApexJob`.
-   * @return A locator over the matching `StationaryAssetCarbonFootprint` records.
+   * @return A locator over the matching `StnryAssetCrbnFtprnt` records.
    */
   public Database.QueryLocator start(Database.BatchableContext bc) {
     markJobRunning(bc);
@@ -86,30 +86,43 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
     ) {
       wheres.add('Id IN :scopeFootprintIds');
     } else {
-      wheres.add('ReportingYear = :scopeYear');
+      wheres.add(BulkGapFillConstants.FIELD_FOOTPRINT_YEAR + ' = :scopeYear');
 
       if (
         request.stationaryAssetIds != null &&
         !request.stationaryAssetIds.isEmpty()
       ) {
-        wheres.add('StnryAssetEnvrSrcId IN :scopeAssetIds');
+        wheres.add(
+          BulkGapFillConstants.FIELD_FOOTPRINT_ASSET + ' IN :scopeAssetIds'
+        );
       }
       if (request.assetTypes != null && !request.assetTypes.isEmpty()) {
-        wheres.add('StnryAssetEnvrSrc.StationaryAssetType IN :scopeAssetTypes');
+        wheres.add(
+          assetField(BulkGapFillConstants.FIELD_ASSET_TYPE) +
+          ' IN :scopeAssetTypes'
+        );
       }
     }
 
-    return 'SELECT Id, StnryAssetEnvrSrcId, ReportingYear, ' +
-      'BldgEnergyIntensityId, RegionalBldgEnergyIntensityId, ' +
-      'StnryAssetEnvrSrc.Name, StnryAssetEnvrSrc.StationaryAssetType, ' +
-      'StnryAssetEnvrSrc.OccupiedFloorArea, StnryAssetEnvrSrc.OccupiedFloorAreaUnit ' +
-      'FROM ' +
+    List<String> selects = new List<String>{ 'Id' };
+    selects.addAll(BulkGapFillConstants.FOOTPRINT_FIELDS);
+    for (String assetFieldName : BulkGapFillConstants.ASSET_FIELDS) {
+      selects.add(assetField(assetFieldName));
+    }
+
+    return 'SELECT ' +
+      String.join(selects, ', ') +
+      ' FROM ' +
       BulkGapFillConstants.OBJ_FOOTPRINT +
-      ' ' +
-      'WHERE ' +
+      ' WHERE ' +
       String.join(wheres, ' AND ') +
-      ' ' +
-      'ORDER BY StnryAssetEnvrSrcId';
+      ' ORDER BY ' +
+      BulkGapFillConstants.FIELD_FOOTPRINT_ASSET;
+  }
+
+  /** Qualifies an asset field for traversal from the footprint. */
+  private static String assetField(String fieldName) {
+    return BulkGapFillConstants.REL_FOOTPRINT_ASSET + '.' + fieldName;
   }
 
   // Bind variables referenced by the dynamic query above. These are plain fields
@@ -270,20 +283,23 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
     ctx.fuelType = fuelType;
     ctx.manualDailyRate = request.manualDailyRate;
 
-    SObject asset = footprint.getSObject('StnryAssetEnvrSrc');
+    SObject asset = footprint.getSObject(
+      BulkGapFillConstants.REL_FOOTPRINT_ASSET
+    );
     if (asset != null) {
       ctx.occupiedFloorAreaSqM = BulkGapFillConstants.toSquareMetres(
-        (Decimal) asset.get('OccupiedFloorArea'),
-        (String) asset.get('OccupiedFloorAreaUnit')
+        (Decimal) asset.get(BulkGapFillConstants.FIELD_ASSET_FLOOR_AREA),
+        (String) asset.get(BulkGapFillConstants.FIELD_ASSET_FLOOR_AREA_UNIT)
       );
     }
 
-    // BEI lookups gate the two benchmark methods. The benchmark value itself
-    // lives on the referenced record, resolved in loadBenchmarks().
+    // BEI lookups gate the two benchmark methods. Both point at a
+    // BldgEnrgyIntensity record, whose per-energy-type values loadBenchmarks()
+    // has already read off the child value records.
     Id beiId = BulkGapFillConstants.METHOD_REGIONAL_BEI.equals(method)
-      ? (Id) footprint.get('RegionalBldgEnergyIntensityId')
-      : (Id) footprint.get('BldgEnergyIntensityId');
-    ctx.beiValue = beiId == null ? null : benchmarkValues.get(beiId);
+      ? (Id) footprint.get(BulkGapFillConstants.FIELD_REGIONAL_BEI_LOOKUP)
+      : (Id) footprint.get(BulkGapFillConstants.FIELD_BEI_LOOKUP);
+    ctx.beiValue = beiValueFor(beiId, fuelType);
 
     List<BulkGapFillService.EnergyRecord> currentForFuel = filterByFuel(
       currentRecords,
@@ -317,59 +333,96 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
 
   // ---- Queries ----------------------------------------------------------
 
-  /** BEI benchmark values keyed by benchmark record Id, populated per chunk. */
-  private Map<Id, Decimal> benchmarkValues = new Map<Id, Decimal>();
+  /**
+   * Annual intensity values for this chunk in kWh per square metre, keyed by
+   * benchmark record Id and then by fuel type. Two levels because a benchmark holds
+   * one value per fuel type on its child BldgEnrgyIntensityVal records.
+   */
+  private Map<Id, Map<String, Decimal>> benchmarkValues = new Map<Id, Map<String, Decimal>>();
 
   /**
-   * Resolves the intensity value behind every BEI lookup in this chunk. Both the
-   * custom (BEI Builder) and regional (CBECS) objects are read, since the fill
-   * method can be overridden per footprint.
+   * Loads the intensity values behind every BEI lookup in this chunk. Both the
+   * custom (BEI Builder) and regional (CBECS) lookups are collected, since the fill
+   * method can be overridden per footprint, and both resolve against the same
+   * BldgEnrgyIntensity object — so one query over its value records covers them.
    */
   private void loadBenchmarks(List<SObject> footprints) {
     benchmarkValues.clear();
 
-    Set<Id> buildingBeiIds = new Set<Id>();
-    Set<Id> regionalBeiIds = new Set<Id>();
+    Set<Id> beiIds = new Set<Id>();
     for (SObject footprint : footprints) {
-      Id buildingId = (Id) footprint.get('BldgEnergyIntensityId');
-      Id regionalId = (Id) footprint.get('RegionalBldgEnergyIntensityId');
-      if (buildingId != null) {
-        buildingBeiIds.add(buildingId);
-      }
-      if (regionalId != null) {
-        regionalBeiIds.add(regionalId);
+      for (String lookup : BulkGapFillConstants.BEI_LOOKUP_FIELDS) {
+        Id beiId = (Id) footprint.get(lookup);
+        if (beiId != null) {
+          beiIds.add(beiId);
+        }
       }
     }
-
-    readBenchmarks(
-      BulkGapFillConstants.OBJ_BUILDING_BEI,
-      BulkGapFillConstants.FIELD_BUILDING_BEI_VALUE,
-      buildingBeiIds
-    );
-    readBenchmarks(
-      BulkGapFillConstants.OBJ_REGIONAL_BEI,
-      BulkGapFillConstants.FIELD_REGIONAL_BEI_VALUE,
-      regionalBeiIds
-    );
-  }
-
-  private void readBenchmarks(
-    String objectName,
-    String valueField,
-    Set<Id> ids
-  ) {
-    if (ids.isEmpty()) {
+    if (beiIds.isEmpty()) {
       return;
     }
+
+    String parentField = BulkGapFillConstants.FIELD_BEI_VALUE_PARENT;
+    String fuelTypeField = BulkGapFillConstants.FIELD_BEI_VALUE_FUEL_TYPE;
+    String metricField = BulkGapFillConstants.FIELD_BEI_VALUE_KWH_M2;
+    String imperialField = BulkGapFillConstants.FIELD_BEI_VALUE_KWH_SQFT;
+
     String soql =
-      'SELECT Id, ' +
-      valueField +
+      'SELECT ' +
+      parentField +
+      ', ' +
+      fuelTypeField +
+      ', ' +
+      metricField +
+      ', ' +
+      imperialField +
       ' FROM ' +
-      objectName +
-      ' WHERE Id IN :ids';
+      BulkGapFillConstants.OBJ_BEI_VALUE +
+      ' WHERE ' +
+      parentField +
+      ' IN :beiIds';
+
     for (SObject row : Database.query(soql)) {
-      benchmarkValues.put((Id) row.get('Id'), (Decimal) row.get(valueField));
+      // Normalize on read so everything downstream is in kWh per square metre.
+      Decimal value = BulkGapFillConstants.toKwhPerSquareMetre(
+        (Decimal) row.get(metricField),
+        (Decimal) row.get(imperialField)
+      );
+      if (value == null) {
+        continue;
+      }
+      Id beiId = (Id) row.get(parentField);
+      if (!benchmarkValues.containsKey(beiId)) {
+        benchmarkValues.put(beiId, new Map<String, Decimal>());
+      }
+      benchmarkValues.get(beiId).put((String) row.get(fuelTypeField), value);
     }
+  }
+
+  /**
+   * Looks up the annual intensity value for one benchmark and fuel type.
+   *
+   * Returns null when the benchmark carries no value for this fuel type, which
+   * `resolveDailyRate` turns into a Skipped detail row. That is deliberate: the
+   * alternative would be borrowing another fuel type's benchmark and writing an
+   * estimate that looks authoritative and is wrong.
+   */
+  private Decimal beiValueFor(Id beiId, String fuelType) {
+    if (beiId == null) {
+      return null;
+    }
+    Map<String, Decimal> byFuelType = benchmarkValues.get(beiId);
+    return byFuelType == null ? null : byFuelType.get(fuelType);
+  }
+
+  /** The SELECT..FROM shared by both energy use queries; callers append a WHERE. */
+  private static String energyUseSelect() {
+    List<String> selects = new List<String>{ 'Id' };
+    selects.addAll(BulkGapFillConstants.ENERGY_USE_FIELDS);
+    return 'SELECT ' +
+      String.join(selects, ', ') +
+      ' FROM ' +
+      BulkGapFillConstants.OBJ_ENERGY_USE;
   }
 
   private Map<Id, List<BulkGapFillService.EnergyRecord>> loadEnergyRecords(
@@ -380,16 +433,15 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
       return byFootprint;
     }
 
+    String parentField = BulkGapFillConstants.FIELD_ENERGY_USE_FOOTPRINT;
     String soql =
-      'SELECT Id, StationaryAssetCarbonFootprintId, FuelType, StartDate, EndDate, ' +
-      'EnergyConsumption, EnergyConsumptionUnit, IsGapFilled ' +
-      'FROM ' +
-      BulkGapFillConstants.OBJ_ENERGY_USE +
-      ' ' +
-      'WHERE StationaryAssetCarbonFootprintId IN :footprintIds';
+      energyUseSelect() +
+      ' WHERE ' +
+      parentField +
+      ' IN :footprintIds';
 
     for (SObject row : Database.query(soql)) {
-      Id parentId = (Id) row.get('StationaryAssetCarbonFootprintId');
+      Id parentId = (Id) row.get(parentField);
       if (!byFootprint.containsKey(parentId)) {
         byFootprint.put(parentId, new List<BulkGapFillService.EnergyRecord>());
       }
@@ -407,9 +459,11 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
   ) {
     Map<Id, List<BulkGapFillService.EnergyRecord>> byCurrentFootprint = new Map<Id, List<BulkGapFillService.EnergyRecord>>();
 
+    String assetIdField = BulkGapFillConstants.FIELD_FOOTPRINT_ASSET;
+
     Map<Id, Id> currentFootprintByAsset = new Map<Id, Id>();
     for (SObject footprint : footprints) {
-      Id assetId = (Id) footprint.get('StnryAssetEnvrSrcId');
+      Id assetId = (Id) footprint.get(assetIdField);
       if (assetId != null) {
         currentFootprintByAsset.put(assetId, (Id) footprint.get('Id'));
       }
@@ -423,11 +477,17 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
 
     Map<Id, Id> priorFootprintToCurrent = new Map<Id, Id>();
     String footprintSoql =
-      'SELECT Id, StnryAssetEnvrSrcId FROM ' +
+      'SELECT Id, ' +
+      assetIdField +
+      ' FROM ' +
       BulkGapFillConstants.OBJ_FOOTPRINT +
-      ' WHERE ReportingYear = :priorYear AND StnryAssetEnvrSrcId IN :assetIds';
+      ' WHERE ' +
+      BulkGapFillConstants.FIELD_FOOTPRINT_YEAR +
+      ' = :priorYear AND ' +
+      assetIdField +
+      ' IN :assetIds';
     for (SObject prior : Database.query(footprintSoql)) {
-      Id assetId = (Id) prior.get('StnryAssetEnvrSrcId');
+      Id assetId = (Id) prior.get(assetIdField);
       priorFootprintToCurrent.put(
         (Id) prior.get('Id'),
         currentFootprintByAsset.get(assetId)
@@ -438,18 +498,15 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
     }
 
     Set<Id> priorFootprintIds = priorFootprintToCurrent.keySet();
+    String parentField = BulkGapFillConstants.FIELD_ENERGY_USE_FOOTPRINT;
     String useSoql =
-      'SELECT Id, StationaryAssetCarbonFootprintId, FuelType, StartDate, EndDate, ' +
-      'EnergyConsumption, EnergyConsumptionUnit, IsGapFilled ' +
-      'FROM ' +
-      BulkGapFillConstants.OBJ_ENERGY_USE +
-      ' ' +
-      'WHERE StationaryAssetCarbonFootprintId IN :priorFootprintIds';
+      energyUseSelect() +
+      ' WHERE ' +
+      parentField +
+      ' IN :priorFootprintIds';
 
     for (SObject row : Database.query(useSoql)) {
-      Id currentId = priorFootprintToCurrent.get(
-        (Id) row.get('StationaryAssetCarbonFootprintId')
-      );
+      Id currentId = priorFootprintToCurrent.get((Id) row.get(parentField));
       if (currentId == null) {
         continue;
       }
@@ -467,12 +524,23 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
   private static BulkGapFillService.EnergyRecord toEnergyRecord(SObject row) {
     BulkGapFillService.EnergyRecord rec = new BulkGapFillService.EnergyRecord();
     rec.recordId = (Id) row.get('Id');
-    rec.fuelType = (String) row.get('FuelType');
-    rec.startDate = (Date) row.get('StartDate');
-    rec.endDate = (Date) row.get('EndDate');
-    rec.consumption = (Decimal) row.get('EnergyConsumption');
-    rec.consumptionUnit = (String) row.get('EnergyConsumptionUnit');
-    rec.isGapFilled = (Boolean) row.get('IsGapFilled');
+    rec.fuelType = (String) row.get(
+      BulkGapFillConstants.FIELD_ENERGY_USE_FUEL_TYPE
+    );
+    rec.startDate = (Date) row.get(BulkGapFillConstants.FIELD_ENERGY_USE_START);
+    rec.endDate = (Date) row.get(BulkGapFillConstants.FIELD_ENERGY_USE_END);
+    rec.consumption = (Decimal) row.get(
+      BulkGapFillConstants.FIELD_ENERGY_USE_CONSUMPTION
+    );
+    rec.consumptionUnit = (String) row.get(
+      BulkGapFillConstants.FIELD_ENERGY_USE_CONSUMPTION_UNIT
+    );
+    // The same flag the native gap fill process sets, so records generated by
+    // either route are recognised here.
+    Boolean systemGenerated = (Boolean) row.get(
+      BulkGapFillConstants.FIELD_ENERGY_USE_IS_SYSTEM_GENERATED
+    );
+    rec.isGapFilled = systemGenerated == true;
     return rec;
   }
 
@@ -489,14 +557,19 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
       .get(BulkGapFillConstants.OBJ_ENERGY_USE)
       .newSObject();
 
-    rec.put('StationaryAssetCarbonFootprintId', footprintId);
-    rec.put('FuelType', gapSet.fuelType);
-    rec.put('StartDate', gap.startDate);
-    rec.put('EndDate', gap.endDate);
-    rec.put('EnergyConsumption', value);
-    rec.put('EnergyConsumptionUnit', gapSet.consumptionUnit);
-    rec.put('IsGapFilled', true);
-    rec.put('GapFillMethod', method);
+    rec.put(BulkGapFillConstants.FIELD_ENERGY_USE_FOOTPRINT, footprintId);
+    rec.put(BulkGapFillConstants.FIELD_ENERGY_USE_FUEL_TYPE, gapSet.fuelType);
+    rec.put(BulkGapFillConstants.FIELD_ENERGY_USE_START, gap.startDate);
+    rec.put(BulkGapFillConstants.FIELD_ENERGY_USE_END, gap.endDate);
+    rec.put(BulkGapFillConstants.FIELD_ENERGY_USE_CONSUMPTION, value);
+    rec.put(
+      BulkGapFillConstants.FIELD_ENERGY_USE_CONSUMPTION_UNIT,
+      gapSet.consumptionUnit
+    );
+    // Match what the native process stamps: the generated flag marks the record as
+    // an estimate, the method name records how it was derived.
+    rec.put(BulkGapFillConstants.FIELD_ENERGY_USE_IS_SYSTEM_GENERATED, true);
+    rec.put(BulkGapFillConstants.FIELD_ENERGY_USE_FILL_METHOD, method);
     return rec;
   }
 
@@ -514,7 +587,7 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
         errorCount++;
         logError(
           'Energy use insert failed for footprint ' +
-            records[i].get('StationaryAssetCarbonFootprintId') +
+            records[i].get(BulkGapFillConstants.FIELD_ENERGY_USE_FOOTPRINT) +
             ': ' +
             results[i].getErrors()[0].getMessage()
         );
@@ -524,12 +597,18 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
   }
 
   private BulkGapFillJobDetail__c baseDetail(SObject footprint) {
-    SObject asset = footprint.getSObject('StnryAssetEnvrSrc');
+    SObject asset = footprint.getSObject(
+      BulkGapFillConstants.REL_FOOTPRINT_ASSET
+    );
     return new BulkGapFillJobDetail__c(
       BulkGapFillJob__c = jobId,
       CarbonFootprintId__c = asText(footprint.get('Id')),
-      StationaryAssetId__c = asText(footprint.get('StnryAssetEnvrSrcId')),
-      StationaryAssetName__c = asset == null ? null : asText(asset.get('Name'))
+      StationaryAssetId__c = asText(
+        footprint.get(BulkGapFillConstants.FIELD_FOOTPRINT_ASSET)
+      ),
+      StationaryAssetName__c = asset == null
+        ? null
+        : asText(asset.get(BulkGapFillConstants.FIELD_ASSET_NAME))
     );
   }
 
