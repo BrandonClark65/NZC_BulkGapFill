@@ -320,9 +320,9 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
   // ---- Queries ----------------------------------------------------------
 
   /**
-   * Annual intensity values for this chunk, keyed by benchmark record Id and then
-   * by energy type. Two levels because a benchmark holds one value per energy type
-   * on its child BldgEnrgyIntensityVal records.
+   * Annual intensity values for this chunk in kWh per square metre, keyed by
+   * benchmark record Id and then by fuel type. Two levels because a benchmark holds
+   * one value per fuel type on its child BldgEnrgyIntensityVal records.
    */
   private Map<Id, Map<String, Decimal>> benchmarkValues = new Map<Id, Map<String, Decimal>>();
 
@@ -349,16 +349,19 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
     }
 
     String parentField = BulkGapFillConstants.FIELD_BEI_VALUE_PARENT;
-    String energyTypeField = BulkGapFillConstants.FIELD_BEI_VALUE_ENERGY_TYPE;
-    String amountField = BulkGapFillConstants.FIELD_BEI_VALUE_AMOUNT;
+    String fuelTypeField = BulkGapFillConstants.FIELD_BEI_VALUE_FUEL_TYPE;
+    String metricField = BulkGapFillConstants.FIELD_BEI_VALUE_KWH_M2;
+    String imperialField = BulkGapFillConstants.FIELD_BEI_VALUE_KWH_SQFT;
 
     String soql =
       'SELECT ' +
       parentField +
       ', ' +
-      energyTypeField +
+      fuelTypeField +
       ', ' +
-      amountField +
+      metricField +
+      ', ' +
+      imperialField +
       ' FROM ' +
       BulkGapFillConstants.OBJ_BEI_VALUE +
       ' WHERE ' +
@@ -366,12 +369,19 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
       ' IN :beiIds';
 
     for (SObject row : Database.query(soql)) {
+      // Normalize on read so everything downstream is in kWh per square metre.
+      Decimal value = BulkGapFillConstants.toKwhPerSquareMetre(
+        (Decimal) row.get(metricField),
+        (Decimal) row.get(imperialField)
+      );
+      if (value == null) {
+        continue;
+      }
       Id beiId = (Id) row.get(parentField);
       if (!benchmarkValues.containsKey(beiId)) {
         benchmarkValues.put(beiId, new Map<String, Decimal>());
       }
-      benchmarkValues.get(beiId)
-        .put((String) row.get(energyTypeField), (Decimal) row.get(amountField));
+      benchmarkValues.get(beiId).put((String) row.get(fuelTypeField), value);
     }
   }
 
@@ -380,15 +390,15 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
    *
    * Returns null when the benchmark carries no value for this fuel type, which
    * `resolveDailyRate` turns into a Skipped detail row. That is deliberate: the
-   * alternative would be borrowing another energy type's benchmark and writing an
+   * alternative would be borrowing another fuel type's benchmark and writing an
    * estimate that looks authoritative and is wrong.
    */
   private Decimal beiValueFor(Id beiId, String fuelType) {
     if (beiId == null) {
       return null;
     }
-    Map<String, Decimal> byEnergyType = benchmarkValues.get(beiId);
-    return byEnergyType == null ? null : byEnergyType.get(fuelType);
+    Map<String, Decimal> byFuelType = benchmarkValues.get(beiId);
+    return byFuelType == null ? null : byFuelType.get(fuelType);
   }
 
   private Map<Id, List<BulkGapFillService.EnergyRecord>> loadEnergyRecords(

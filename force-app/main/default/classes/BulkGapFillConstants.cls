@@ -64,9 +64,9 @@ public with sharing class BulkGapFillConstants {
   public static final String OBJ_BEI = 'BldgEnrgyIntensity';
 
   /**
-   * Per-energy-type values belonging to a benchmark. The intensity figure the
-   * BEI fill methods need lives here, not on the header, so a benchmark is
-   * resolved by (benchmark record, energy type) rather than by record alone.
+   * Per-fuel-type values belonging to a benchmark. The intensity figure the BEI
+   * fill methods need lives here, not on the header, so a benchmark is resolved
+   * by (benchmark record, fuel type) rather than by record alone.
    */
   public static final String OBJ_BEI_VALUE = 'BldgEnrgyIntensityVal';
 
@@ -91,22 +91,21 @@ public with sharing class BulkGapFillConstants {
   };
 
   // ---- BldgEnrgyIntensityVal fields -------------------------------------
-  /**
-   * Parent benchmark lookup on a value record.
-   * TODO: verify against the target org.
-   */
-  public static final String FIELD_BEI_VALUE_PARENT = 'BldgEnrgyIntensityId';
+  /** Master-detail to the parent benchmark. */
+  public static final String FIELD_BEI_VALUE_PARENT = 'BuildingEnergyIntensityId';
 
   /**
-   * Energy type a value applies to. Matched against the `FuelType` on energy use
-   * records, so the two picklists have to agree for a BEI fill to resolve.
-   * TODO: verify against the target org, both the field name and that the
-   * picklist values line up with FuelType.
+   * Fuel type a value applies to. Shares both its name and its picklist with the
+   * `FuelType` on energy use records, so the two match directly.
    */
-  public static final String FIELD_BEI_VALUE_ENERGY_TYPE = 'EnergyType';
+  public static final String FIELD_BEI_VALUE_FUEL_TYPE = 'FuelType';
 
-  /** Annual Intensity Value: the benchmark figure, in kWh per square metre per year. */
-  public static final String FIELD_BEI_VALUE_AMOUNT = 'AnnualIntensityValue';
+  /**
+   * The benchmark figure, carried in two units. A benchmark may populate either,
+   * so both are read and normalized by `toKwhPerSquareMetre`.
+   */
+  public static final String FIELD_BEI_VALUE_KWH_M2 = 'AnnualIntensityValueInKwhM2';
+  public static final String FIELD_BEI_VALUE_KWH_SQFT = 'AnnualIntensityValueInKwhSqft';
 
   // ---- Tuning -----------------------------------------------------------
   /** Conservative default: each footprint can fan out into many child inserts. */
@@ -146,6 +145,30 @@ public with sharing class BulkGapFillConstants {
   }
 
   /**
+   * @description Normalizes a benchmark to kWh per square metre, the unit the fill
+   * math works in.
+   *
+   * A `BldgEnrgyIntensityVal` carries its figure in two units and may populate
+   * either, so the metric field is preferred and the imperial one converted as a
+   * fallback. That keeps a benchmark usable when only the imperial column is filled
+   * in, rather than skipping the fill.
+   *
+   * @param kwhPerSqM The `AnnualIntensityValueInKwhM2` figure. Wins when populated.
+   * @param kwhPerSqFt The `AnnualIntensityValueInKwhSqft` figure, used as a fallback.
+   * @return The benchmark in kWh per square metre, or null when neither is populated.
+   */
+  public static Decimal toKwhPerSquareMetre(
+    Decimal kwhPerSqM,
+    Decimal kwhPerSqFt
+  ) {
+    if (kwhPerSqM != null) {
+      return kwhPerSqM;
+    }
+    // kWh per sqft x sqft per m2 = kWh per m2.
+    return kwhPerSqFt == null ? null : kwhPerSqFt * SQFT_PER_SQM;
+  }
+
+  /**
    * @description Confirms every Net Zero Cloud object and field the solution
    * depends on actually exists and is accessible in the running org.
    *
@@ -174,8 +197,9 @@ public with sharing class BulkGapFillConstants {
 
     List<String> beiValueFields = new List<String>{
       FIELD_BEI_VALUE_PARENT,
-      FIELD_BEI_VALUE_ENERGY_TYPE,
-      FIELD_BEI_VALUE_AMOUNT
+      FIELD_BEI_VALUE_FUEL_TYPE,
+      FIELD_BEI_VALUE_KWH_M2,
+      FIELD_BEI_VALUE_KWH_SQFT
     };
     for (String fieldName : beiValueFields) {
       problems.addAll(checkField(globals, OBJ_BEI_VALUE, fieldName));

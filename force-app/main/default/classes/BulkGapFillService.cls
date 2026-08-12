@@ -185,7 +185,7 @@ public with sharing class BulkGapFillService {
 
     /**
      * Annual intensity value in kWh per square metre per year, for `fuelType`
-     * specifically — benchmarks hold one value per energy type, so the caller
+     * specifically — benchmarks hold one value per fuel type, so the caller
      * resolves it against the fuel type before populating this.
      */
     public Decimal beiValue;
@@ -479,7 +479,7 @@ public with sharing class BulkGapFillService {
         : 'Building BEI';
       if (ctx.beiValue == null) {
         // Covers both causes: no benchmark on the footprint at all, and a
-        // benchmark that carries no annual intensity value for this energy type.
+        // benchmark that carries no annual intensity value for this fuel type.
         throw new FillNotViableException(
           label +
             ' fill requires a benchmark on the carbon footprint record with an' +

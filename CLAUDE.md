@@ -40,7 +40,7 @@ The native wizard walks through three steps for a **single** `StnryAssetCrbnFtpr
 | Stationary Asset Carbon Footprint     | `StnryAssetCrbnFtprnt`  | Annual carbon footprint record per asset per reporting year             |
 | Stationary Asset Energy Use           | `StnryAssetEnrgyUse`    | Individual energy consumption records (fuel type, date range, quantity) |
 | Building Energy Intensity             | `BldgEnrgyIntensity`    | BEI benchmark header; target of every BEI lookup                        |
-| Building Energy Intensity Value       | `BldgEnrgyIntensityVal` | `AnnualIntensityValue` per energy type; where the BEI figure lives      |
+| Building Energy Intensity Value       | `BldgEnrgyIntensityVal` | Annual intensity value per fuel type; where the BEI figure lives        |
 
 There is **no** regional building energy intensity object. The regional lookup on the
 stationary asset points at a `BldgEnrgyIntensity` record like the custom one does, so
@@ -66,9 +66,17 @@ Both BEI lookups point at a `BldgEnrgyIntensity` record. The two field names spe
 `Building` differently — unabbreviated on the custom lookup, `Bldg` on the regional
 one — and neither matches the object's own `BldgEnrgy` spelling.
 
-The benchmark header holds no intensity figure itself. `AnnualIntensityValue` lives
-on the child `BldgEnrgyIntensityVal` records, one per energy type, so a BEI fill
-resolves on **(benchmark, energy type)** — not on the benchmark alone.
+The benchmark header holds no intensity figure itself. It lives on the child
+`BldgEnrgyIntensityVal` records, one per fuel type, so a BEI fill resolves on
+**(benchmark, fuel type)** — not on the benchmark alone.
+
+### Key Fields on `BldgEnrgyIntensityVal`
+
+- `BuildingEnergyIntensityId` — master-detail to the parent benchmark
+- `FuelType` — same field name and picklist as the `FuelType` on energy use records
+- `AnnualIntensityValueInKwhM2` / `AnnualIntensityValueInKwhSqft` — the benchmark
+  figure in either unit; a record may populate just one, so the batch prefers the
+  metric column and converts the imperial one as a fallback
 
 ### Key Fields on `StnryAssetEnrgyUse`
 
@@ -95,7 +103,7 @@ GapFillValue = DailyRate × GapDays
 ```
 
 **Requires**: `RegionalBldgEnergyIntensityId` populated on the carbon footprint record,
-and a `BldgEnrgyIntensityVal` under that benchmark for the energy type being filled.
+and a `BldgEnrgyIntensityVal` under that benchmark for the fuel type being filled.
 
 ### 2. Building Energy Intensity (Custom BEI)
 
@@ -107,7 +115,7 @@ GapFillValue = DailyRate × GapDays
 ```
 
 **Requires**: `BuildingEnergyIntensityId` populated on the carbon footprint record,
-and a `BldgEnrgyIntensityVal` under that benchmark for the energy type being filled.
+and a `BldgEnrgyIntensityVal` under that benchmark for the fuel type being filled.
 
 ### 3. Previous Year Daily Average
 
