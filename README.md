@@ -176,16 +176,19 @@ touching only custom objects.
 
 Known gaps in this implementation, so nobody discovers them the hard way:
 
-- **NZC API names are only partly verified.** The object names and the BEI lookup
-  fields in `BulkGapFillConstants` are confirmed; the remaining field names have not
-  been checked against an org with Net Zero Cloud installed. `FIELD_BEI_VALUE` is the
-  least certain and is marked with a `TODO`. Run
-  `BulkGapFillConstants.validateSchema()` against the target org before the first
-  deploy — the NZC queries are dynamic, so a clean deploy proves nothing.
-- **BEI values may live on the child object.** `loadBenchmarks()` reads
-  `FIELD_BEI_VALUE` straight off the `BldgEnrgyIntensity` record the lookup points
-  to. If the per-energy-type figures actually sit on `BldgEnrgyIntensityVal`, that
-  read becomes a related query against the child object.
+- **NZC API names are only partly verified.** The object names, the BEI lookup fields,
+  and `AnnualIntensityValue` in `BulkGapFillConstants` are confirmed; the remaining
+  field names have not been checked against an org with Net Zero Cloud installed.
+  `FIELD_BEI_VALUE_PARENT` and `FIELD_BEI_VALUE_ENERGY_TYPE` are the least certain and
+  are marked with a `TODO`. Run `BulkGapFillConstants.validateSchema()` against the
+  target org before the first deploy — the NZC queries are dynamic, so a clean deploy
+  proves nothing.
+- **BEI energy types must match `FuelType`.** A benchmark's `AnnualIntensityValue`
+  lives on child `BldgEnrgyIntensityVal` records keyed by energy type, which the batch
+  matches against the `FuelType` on energy use records by exact string. If the two
+  picklists use different values, every BEI fill resolves to a **Skipped** row rather
+  than a wrong estimate — safe, but silent. Dry-run first and check the detail rows
+  before assuming a BEI run will produce anything.
 - **Orphan association is not implemented.** `associateOrphans` is accepted on the
   request and surfaced in the UI, but no matching logic runs; `RecordsAssociated__c`
   stays at zero. The matching rule is org-specific.

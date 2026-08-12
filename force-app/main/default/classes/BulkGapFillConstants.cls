@@ -63,7 +63,11 @@ public with sharing class BulkGapFillConstants {
    */
   public static final String OBJ_BEI = 'BldgEnrgyIntensity';
 
-  /** Per-energy-type values belonging to a benchmark. */
+  /**
+   * Per-energy-type values belonging to a benchmark. The intensity figure the
+   * BEI fill methods need lives here, not on the header, so a benchmark is
+   * resolved by (benchmark record, energy type) rather than by record alone.
+   */
   public static final String OBJ_BEI_VALUE = 'BldgEnrgyIntensityVal';
 
   // ---- Net Zero Cloud field API names -----------------------------------
@@ -86,11 +90,23 @@ public with sharing class BulkGapFillConstants {
     FIELD_REGIONAL_BEI_LOOKUP
   };
 
-  // Field holding the benchmark itself, in kWh per square metre per year.
-  // TODO: verify against the target org - BldgEnrgyIntensity exposes several
-  // intensity fields, and the per-energy-type figures may instead live on the
-  // child BldgEnrgyIntensityVal records, which would make this a related query.
-  public static final String FIELD_BEI_VALUE = 'EnergyIntensityValue';
+  // ---- BldgEnrgyIntensityVal fields -------------------------------------
+  /**
+   * Parent benchmark lookup on a value record.
+   * TODO: verify against the target org.
+   */
+  public static final String FIELD_BEI_VALUE_PARENT = 'BldgEnrgyIntensityId';
+
+  /**
+   * Energy type a value applies to. Matched against the `FuelType` on energy use
+   * records, so the two picklists have to agree for a BEI fill to resolve.
+   * TODO: verify against the target org, both the field name and that the
+   * picklist values line up with FuelType.
+   */
+  public static final String FIELD_BEI_VALUE_ENERGY_TYPE = 'EnergyType';
+
+  /** Annual Intensity Value: the benchmark figure, in kWh per square metre per year. */
+  public static final String FIELD_BEI_VALUE_AMOUNT = 'AnnualIntensityValue';
 
   // ---- Tuning -----------------------------------------------------------
   /** Conservative default: each footprint can fan out into many child inserts. */
@@ -156,7 +172,15 @@ public with sharing class BulkGapFillConstants {
       }
     }
 
-    problems.addAll(checkField(globals, OBJ_BEI, FIELD_BEI_VALUE));
+    List<String> beiValueFields = new List<String>{
+      FIELD_BEI_VALUE_PARENT,
+      FIELD_BEI_VALUE_ENERGY_TYPE,
+      FIELD_BEI_VALUE_AMOUNT
+    };
+    for (String fieldName : beiValueFields) {
+      problems.addAll(checkField(globals, OBJ_BEI_VALUE, fieldName));
+    }
+
     problems.addAll(
       checkField(globals, OBJ_ENERGY_USE, FIELD_ENERGY_USE_FOOTPRINT)
     );

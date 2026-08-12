@@ -40,7 +40,7 @@ The native wizard walks through three steps for a **single** `StnryAssetCrbnFtpr
 | Stationary Asset Carbon Footprint     | `StnryAssetCrbnFtprnt`  | Annual carbon footprint record per asset per reporting year             |
 | Stationary Asset Energy Use           | `StnryAssetEnrgyUse`    | Individual energy consumption records (fuel type, date range, quantity) |
 | Building Energy Intensity             | `BldgEnrgyIntensity`    | BEI benchmark header; target of every BEI lookup                        |
-| Building Energy Intensity Value       | `BldgEnrgyIntensityVal` | Per-energy-type values belonging to a benchmark                         |
+| Building Energy Intensity Value       | `BldgEnrgyIntensityVal` | `AnnualIntensityValue` per energy type; where the BEI figure lives      |
 
 There is **no** regional building energy intensity object. The regional lookup on the
 stationary asset points at a `BldgEnrgyIntensity` record like the custom one does, so
@@ -66,6 +66,10 @@ Both BEI lookups point at a `BldgEnrgyIntensity` record. The two field names spe
 `Building` differently — unabbreviated on the custom lookup, `Bldg` on the regional
 one — and neither matches the object's own `BldgEnrgy` spelling.
 
+The benchmark header holds no intensity figure itself. `AnnualIntensityValue` lives
+on the child `BldgEnrgyIntensityVal` records, one per energy type, so a BEI fill
+resolves on **(benchmark, energy type)** — not on the benchmark alone.
+
 ### Key Fields on `StnryAssetEnrgyUse`
 
 - `StnryAssetCrbnFtprntId` — parent footprint record
@@ -90,7 +94,8 @@ DailyRate = (RegionalBEI_kWh_per_m2 × OccupiedFloorArea_m2) / 365
 GapFillValue = DailyRate × GapDays
 ```
 
-**Requires**: `RegionalBldgEnergyIntensityId` populated on the carbon footprint record.
+**Requires**: `RegionalBldgEnergyIntensityId` populated on the carbon footprint record,
+and a `BldgEnrgyIntensityVal` under that benchmark for the energy type being filled.
 
 ### 2. Building Energy Intensity (Custom BEI)
 
@@ -101,7 +106,8 @@ DailyRate = (CustomBEI_kWh_per_m2 × OccupiedFloorArea_m2) / 365
 GapFillValue = DailyRate × GapDays
 ```
 
-**Requires**: `BuildingEnergyIntensityId` populated on the carbon footprint record.
+**Requires**: `BuildingEnergyIntensityId` populated on the carbon footprint record,
+and a `BldgEnrgyIntensityVal` under that benchmark for the energy type being filled.
 
 ### 3. Previous Year Daily Average
 

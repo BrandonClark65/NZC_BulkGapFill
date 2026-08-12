@@ -280,11 +280,12 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
     }
 
     // BEI lookups gate the two benchmark methods. Both point at a
-    // BldgEnrgyIntensity record, whose value is resolved in loadBenchmarks().
+    // BldgEnrgyIntensity record, whose per-energy-type values loadBenchmarks()
+    // has already read off the child value records.
     Id beiId = BulkGapFillConstants.METHOD_REGIONAL_BEI.equals(method)
       ? (Id) footprint.get(BulkGapFillConstants.FIELD_REGIONAL_BEI_LOOKUP)
       : (Id) footprint.get(BulkGapFillConstants.FIELD_BEI_LOOKUP);
-    ctx.beiValue = beiId == null ? null : benchmarkValues.get(beiId);
+    ctx.beiValue = beiValueFor(beiId, fuelType);
 
     List<BulkGapFillService.EnergyRecord> currentForFuel = filterByFuel(
       currentRecords,
@@ -318,14 +319,18 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
 
   // ---- Queries ----------------------------------------------------------
 
-  /** BEI benchmark values keyed by benchmark record Id, populated per chunk. */
-  private Map<Id, Decimal> benchmarkValues = new Map<Id, Decimal>();
+  /**
+   * Annual intensity values for this chunk, keyed by benchmark record Id and then
+   * by energy type. Two levels because a benchmark holds one value per energy type
+   * on its child BldgEnrgyIntensityVal records.
+   */
+  private Map<Id, Map<String, Decimal>> benchmarkValues = new Map<Id, Map<String, Decimal>>();
 
   /**
-   * Resolves the intensity value behind every BEI lookup in this chunk. Both the
+   * Loads the intensity values behind every BEI lookup in this chunk. Both the
    * custom (BEI Builder) and regional (CBECS) lookups are collected, since the fill
    * method can be overridden per footprint, and both resolve against the same
-   * BldgEnrgyIntensity object — so one query covers them.
+   * BldgEnrgyIntensity object — so one query over its value records covers them.
    */
   private void loadBenchmarks(List<SObject> footprints) {
     benchmarkValues.clear();
@@ -343,16 +348,47 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
       return;
     }
 
-    String valueField = BulkGapFillConstants.FIELD_BEI_VALUE;
+    String parentField = BulkGapFillConstants.FIELD_BEI_VALUE_PARENT;
+    String energyTypeField = BulkGapFillConstants.FIELD_BEI_VALUE_ENERGY_TYPE;
+    String amountField = BulkGapFillConstants.FIELD_BEI_VALUE_AMOUNT;
+
     String soql =
-      'SELECT Id, ' +
-      valueField +
+      'SELECT ' +
+      parentField +
+      ', ' +
+      energyTypeField +
+      ', ' +
+      amountField +
       ' FROM ' +
-      BulkGapFillConstants.OBJ_BEI +
-      ' WHERE Id IN :beiIds';
+      BulkGapFillConstants.OBJ_BEI_VALUE +
+      ' WHERE ' +
+      parentField +
+      ' IN :beiIds';
+
     for (SObject row : Database.query(soql)) {
-      benchmarkValues.put((Id) row.get('Id'), (Decimal) row.get(valueField));
+      Id beiId = (Id) row.get(parentField);
+      if (!benchmarkValues.containsKey(beiId)) {
+        benchmarkValues.put(beiId, new Map<String, Decimal>());
+      }
+      benchmarkValues.get(beiId)
+        .put((String) row.get(energyTypeField), (Decimal) row.get(amountField));
     }
+  }
+
+  /**
+   * Looks up the annual intensity value for one benchmark and fuel type.
+   *
+   * Returns null when the benchmark carries no value for this fuel type, which
+   * `resolveDailyRate` turns into a Skipped detail row. That is deliberate: the
+   * alternative would be borrowing another energy type's benchmark and writing an
+   * estimate that looks authoritative and is wrong.
+   */
+  private Decimal beiValueFor(Id beiId, String fuelType) {
+    if (beiId == null) {
+      return null;
+    }
+    Map<String, Decimal> byEnergyType = benchmarkValues.get(beiId);
+    return byEnergyType == null ? null : byEnergyType.get(fuelType);
   }
 
   private Map<Id, List<BulkGapFillService.EnergyRecord>> loadEnergyRecords(

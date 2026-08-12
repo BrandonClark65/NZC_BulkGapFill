@@ -183,7 +183,11 @@ public with sharing class BulkGapFillService {
     public String method;
     public String fuelType;
 
-    /** BEI benchmark in kWh per square metre per year. */
+    /**
+     * Annual intensity value in kWh per square metre per year, for `fuelType`
+     * specifically — benchmarks hold one value per energy type, so the caller
+     * resolves it against the fuel type before populating this.
+     */
     public Decimal beiValue;
 
     /** Occupied floor area, already normalized to square metres. */
@@ -474,9 +478,14 @@ public with sharing class BulkGapFillService {
         ? 'Regional BEI'
         : 'Building BEI';
       if (ctx.beiValue == null) {
+        // Covers both causes: no benchmark on the footprint at all, and a
+        // benchmark that carries no annual intensity value for this energy type.
         throw new FillNotViableException(
           label +
-          ' fill requires a benchmark on the carbon footprint record, but none is populated.'
+            ' fill requires a benchmark on the carbon footprint record with an' +
+            ' annual intensity value for fuel type ' +
+            ctx.fuelType +
+            ', but none was found.'
         );
       }
       if (ctx.occupiedFloorAreaSqM == null || ctx.occupiedFloorAreaSqM <= 0) {
