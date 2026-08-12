@@ -70,9 +70,12 @@ public with sharing class BulkGapFillConstants {
    */
   public static final String OBJ_BEI_VALUE = 'BldgEnrgyIntensityVal';
 
-  // ---- Net Zero Cloud field API names -----------------------------------
-  /** Parent lookup from an energy use record to its carbon footprint. */
-  public static final String FIELD_ENERGY_USE_FOOTPRINT = 'StnryAssetCrbnFtprntId';
+  // ---- StnryAssetCrbnFtprnt fields --------------------------------------
+  /** Parent asset lookup. */
+  public static final String FIELD_FOOTPRINT_ASSET = 'StnryAssetEnvrSrcId';
+
+  /** Reporting year, the primary scope filter for a run. */
+  public static final String FIELD_FOOTPRINT_YEAR = 'ReportingYear';
 
   /**
    * Custom (BEI Builder) benchmark lookup on the carbon footprint. Note the
@@ -88,6 +91,56 @@ public with sharing class BulkGapFillConstants {
   public static final List<String> BEI_LOOKUP_FIELDS = new List<String>{
     FIELD_BEI_LOOKUP,
     FIELD_REGIONAL_BEI_LOOKUP
+  };
+
+  /** Relationship name for traversing a footprint to its stationary asset. */
+  public static final String REL_FOOTPRINT_ASSET = 'StnryAssetEnvrSrc';
+
+  /** Footprint fields the batch selects, beyond `Id`. */
+  public static final List<String> FOOTPRINT_FIELDS = new List<String>{
+    FIELD_FOOTPRINT_ASSET,
+    FIELD_FOOTPRINT_YEAR,
+    FIELD_BEI_LOOKUP,
+    FIELD_REGIONAL_BEI_LOOKUP
+  };
+
+  // ---- StnryAssetEnvrSrc fields -----------------------------------------
+  public static final String FIELD_ASSET_NAME = 'Name';
+  public static final String FIELD_ASSET_TYPE = 'StationaryAssetType';
+  public static final String FIELD_ASSET_FLOOR_AREA = 'OccupiedFloorArea';
+  public static final String FIELD_ASSET_FLOOR_AREA_UNIT = 'OccupiedFloorAreaUnit';
+
+  /** Asset fields the batch selects through `REL_FOOTPRINT_ASSET`. */
+  public static final List<String> ASSET_FIELDS = new List<String>{
+    FIELD_ASSET_NAME,
+    FIELD_ASSET_TYPE,
+    FIELD_ASSET_FLOOR_AREA,
+    FIELD_ASSET_FLOOR_AREA_UNIT
+  };
+
+  // ---- StnryAssetEnrgyUse fields ----------------------------------------
+  /** Parent lookup from an energy use record to its carbon footprint. */
+  public static final String FIELD_ENERGY_USE_FOOTPRINT = 'StnryAssetCrbnFtprntId';
+
+  public static final String FIELD_ENERGY_USE_FUEL_TYPE = 'FuelType';
+  public static final String FIELD_ENERGY_USE_START = 'StartDate';
+  public static final String FIELD_ENERGY_USE_END = 'EndDate';
+  public static final String FIELD_ENERGY_USE_CONSUMPTION = 'EnergyConsumption';
+  public static final String FIELD_ENERGY_USE_CONSUMPTION_UNIT = 'EnergyConsumptionUnit';
+  public static final String FIELD_ENERGY_USE_IS_GAP_FILLED = 'IsGapFilled';
+
+  /** Stamped on generated records for the audit trail; written, never read back. */
+  public static final String FIELD_ENERGY_USE_GAP_FILL_METHOD = 'GapFillMethod';
+
+  /** Energy use fields the batch selects, beyond `Id`. */
+  public static final List<String> ENERGY_USE_FIELDS = new List<String>{
+    FIELD_ENERGY_USE_FOOTPRINT,
+    FIELD_ENERGY_USE_FUEL_TYPE,
+    FIELD_ENERGY_USE_START,
+    FIELD_ENERGY_USE_END,
+    FIELD_ENERGY_USE_CONSUMPTION,
+    FIELD_ENERGY_USE_CONSUMPTION_UNIT,
+    FIELD_ENERGY_USE_IS_GAP_FILLED
   };
 
   // ---- BldgEnrgyIntensityVal fields -------------------------------------
@@ -182,6 +235,8 @@ public with sharing class BulkGapFillConstants {
     List<String> problems = new List<String>();
     Map<String, Schema.SObjectType> globals = Schema.getGlobalDescribe();
 
+    // OBJ_BEI carries no fields of its own here — it is only a lookup target —
+    // so it is checked for existence and nothing else.
     List<String> required = new List<String>{
       OBJ_ASSET,
       OBJ_FOOTPRINT,
@@ -195,21 +250,27 @@ public with sharing class BulkGapFillConstants {
       }
     }
 
-    List<String> beiValueFields = new List<String>{
-      FIELD_BEI_VALUE_PARENT,
-      FIELD_BEI_VALUE_FUEL_TYPE,
-      FIELD_BEI_VALUE_KWH_M2,
-      FIELD_BEI_VALUE_KWH_SQFT
-    };
-    for (String fieldName : beiValueFields) {
-      problems.addAll(checkField(globals, OBJ_BEI_VALUE, fieldName));
-    }
+    // Every field the batch reads or writes. These are the same lists the dynamic
+    // SOQL is built from, so validation cannot drift from what actually runs.
+    List<String> energyUseFields = new List<String>(ENERGY_USE_FIELDS);
+    energyUseFields.add(FIELD_ENERGY_USE_GAP_FILL_METHOD);
 
-    problems.addAll(
-      checkField(globals, OBJ_ENERGY_USE, FIELD_ENERGY_USE_FOOTPRINT)
-    );
-    for (String lookup : BEI_LOOKUP_FIELDS) {
-      problems.addAll(checkField(globals, OBJ_FOOTPRINT, lookup));
+    Map<String, List<String>> fieldsByObject = new Map<String, List<String>>{
+      OBJ_ASSET => ASSET_FIELDS,
+      OBJ_FOOTPRINT => FOOTPRINT_FIELDS,
+      OBJ_ENERGY_USE => energyUseFields,
+      OBJ_BEI_VALUE => new List<String>{
+        FIELD_BEI_VALUE_PARENT,
+        FIELD_BEI_VALUE_FUEL_TYPE,
+        FIELD_BEI_VALUE_KWH_M2,
+        FIELD_BEI_VALUE_KWH_SQFT
+      }
+    };
+
+    for (String objName : fieldsByObject.keySet()) {
+      for (String fieldName : fieldsByObject.get(objName)) {
+        problems.addAll(checkField(globals, objName, fieldName));
+      }
     }
     return problems;
   }

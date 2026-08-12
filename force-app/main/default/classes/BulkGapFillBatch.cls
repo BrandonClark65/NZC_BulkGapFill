@@ -86,31 +86,43 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
     ) {
       wheres.add('Id IN :scopeFootprintIds');
     } else {
-      wheres.add('ReportingYear = :scopeYear');
+      wheres.add(BulkGapFillConstants.FIELD_FOOTPRINT_YEAR + ' = :scopeYear');
 
       if (
         request.stationaryAssetIds != null &&
         !request.stationaryAssetIds.isEmpty()
       ) {
-        wheres.add('StnryAssetEnvrSrcId IN :scopeAssetIds');
+        wheres.add(
+          BulkGapFillConstants.FIELD_FOOTPRINT_ASSET + ' IN :scopeAssetIds'
+        );
       }
       if (request.assetTypes != null && !request.assetTypes.isEmpty()) {
-        wheres.add('StnryAssetEnvrSrc.StationaryAssetType IN :scopeAssetTypes');
+        wheres.add(
+          assetField(BulkGapFillConstants.FIELD_ASSET_TYPE) +
+          ' IN :scopeAssetTypes'
+        );
       }
     }
 
-    return 'SELECT Id, StnryAssetEnvrSrcId, ReportingYear, ' +
-      String.join(BulkGapFillConstants.BEI_LOOKUP_FIELDS, ', ') +
-      ', ' +
-      'StnryAssetEnvrSrc.Name, StnryAssetEnvrSrc.StationaryAssetType, ' +
-      'StnryAssetEnvrSrc.OccupiedFloorArea, StnryAssetEnvrSrc.OccupiedFloorAreaUnit ' +
-      'FROM ' +
+    List<String> selects = new List<String>{ 'Id' };
+    selects.addAll(BulkGapFillConstants.FOOTPRINT_FIELDS);
+    for (String assetFieldName : BulkGapFillConstants.ASSET_FIELDS) {
+      selects.add(assetField(assetFieldName));
+    }
+
+    return 'SELECT ' +
+      String.join(selects, ', ') +
+      ' FROM ' +
       BulkGapFillConstants.OBJ_FOOTPRINT +
-      ' ' +
-      'WHERE ' +
+      ' WHERE ' +
       String.join(wheres, ' AND ') +
-      ' ' +
-      'ORDER BY StnryAssetEnvrSrcId';
+      ' ORDER BY ' +
+      BulkGapFillConstants.FIELD_FOOTPRINT_ASSET;
+  }
+
+  /** Qualifies an asset field for traversal from the footprint. */
+  private static String assetField(String fieldName) {
+    return BulkGapFillConstants.REL_FOOTPRINT_ASSET + '.' + fieldName;
   }
 
   // Bind variables referenced by the dynamic query above. These are plain fields
@@ -271,11 +283,13 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
     ctx.fuelType = fuelType;
     ctx.manualDailyRate = request.manualDailyRate;
 
-    SObject asset = footprint.getSObject('StnryAssetEnvrSrc');
+    SObject asset = footprint.getSObject(
+      BulkGapFillConstants.REL_FOOTPRINT_ASSET
+    );
     if (asset != null) {
       ctx.occupiedFloorAreaSqM = BulkGapFillConstants.toSquareMetres(
-        (Decimal) asset.get('OccupiedFloorArea'),
-        (String) asset.get('OccupiedFloorAreaUnit')
+        (Decimal) asset.get(BulkGapFillConstants.FIELD_ASSET_FLOOR_AREA),
+        (String) asset.get(BulkGapFillConstants.FIELD_ASSET_FLOOR_AREA_UNIT)
       );
     }
 
@@ -401,6 +415,16 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
     return byFuelType == null ? null : byFuelType.get(fuelType);
   }
 
+  /** The SELECT..FROM shared by both energy use queries; callers append a WHERE. */
+  private static String energyUseSelect() {
+    List<String> selects = new List<String>{ 'Id' };
+    selects.addAll(BulkGapFillConstants.ENERGY_USE_FIELDS);
+    return 'SELECT ' +
+      String.join(selects, ', ') +
+      ' FROM ' +
+      BulkGapFillConstants.OBJ_ENERGY_USE;
+  }
+
   private Map<Id, List<BulkGapFillService.EnergyRecord>> loadEnergyRecords(
     Set<Id> footprintIds
   ) {
@@ -411,14 +435,8 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
 
     String parentField = BulkGapFillConstants.FIELD_ENERGY_USE_FOOTPRINT;
     String soql =
-      'SELECT Id, ' +
-      parentField +
-      ', FuelType, StartDate, EndDate, ' +
-      'EnergyConsumption, EnergyConsumptionUnit, IsGapFilled ' +
-      'FROM ' +
-      BulkGapFillConstants.OBJ_ENERGY_USE +
-      ' ' +
-      'WHERE ' +
+      energyUseSelect() +
+      ' WHERE ' +
       parentField +
       ' IN :footprintIds';
 
@@ -441,9 +459,11 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
   ) {
     Map<Id, List<BulkGapFillService.EnergyRecord>> byCurrentFootprint = new Map<Id, List<BulkGapFillService.EnergyRecord>>();
 
+    String assetIdField = BulkGapFillConstants.FIELD_FOOTPRINT_ASSET;
+
     Map<Id, Id> currentFootprintByAsset = new Map<Id, Id>();
     for (SObject footprint : footprints) {
-      Id assetId = (Id) footprint.get('StnryAssetEnvrSrcId');
+      Id assetId = (Id) footprint.get(assetIdField);
       if (assetId != null) {
         currentFootprintByAsset.put(assetId, (Id) footprint.get('Id'));
       }
@@ -457,11 +477,17 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
 
     Map<Id, Id> priorFootprintToCurrent = new Map<Id, Id>();
     String footprintSoql =
-      'SELECT Id, StnryAssetEnvrSrcId FROM ' +
+      'SELECT Id, ' +
+      assetIdField +
+      ' FROM ' +
       BulkGapFillConstants.OBJ_FOOTPRINT +
-      ' WHERE ReportingYear = :priorYear AND StnryAssetEnvrSrcId IN :assetIds';
+      ' WHERE ' +
+      BulkGapFillConstants.FIELD_FOOTPRINT_YEAR +
+      ' = :priorYear AND ' +
+      assetIdField +
+      ' IN :assetIds';
     for (SObject prior : Database.query(footprintSoql)) {
-      Id assetId = (Id) prior.get('StnryAssetEnvrSrcId');
+      Id assetId = (Id) prior.get(assetIdField);
       priorFootprintToCurrent.put(
         (Id) prior.get('Id'),
         currentFootprintByAsset.get(assetId)
@@ -474,14 +500,8 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
     Set<Id> priorFootprintIds = priorFootprintToCurrent.keySet();
     String parentField = BulkGapFillConstants.FIELD_ENERGY_USE_FOOTPRINT;
     String useSoql =
-      'SELECT Id, ' +
-      parentField +
-      ', FuelType, StartDate, EndDate, ' +
-      'EnergyConsumption, EnergyConsumptionUnit, IsGapFilled ' +
-      'FROM ' +
-      BulkGapFillConstants.OBJ_ENERGY_USE +
-      ' ' +
-      'WHERE ' +
+      energyUseSelect() +
+      ' WHERE ' +
       parentField +
       ' IN :priorFootprintIds';
 
@@ -504,12 +524,20 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
   private static BulkGapFillService.EnergyRecord toEnergyRecord(SObject row) {
     BulkGapFillService.EnergyRecord rec = new BulkGapFillService.EnergyRecord();
     rec.recordId = (Id) row.get('Id');
-    rec.fuelType = (String) row.get('FuelType');
-    rec.startDate = (Date) row.get('StartDate');
-    rec.endDate = (Date) row.get('EndDate');
-    rec.consumption = (Decimal) row.get('EnergyConsumption');
-    rec.consumptionUnit = (String) row.get('EnergyConsumptionUnit');
-    rec.isGapFilled = (Boolean) row.get('IsGapFilled');
+    rec.fuelType = (String) row.get(
+      BulkGapFillConstants.FIELD_ENERGY_USE_FUEL_TYPE
+    );
+    rec.startDate = (Date) row.get(BulkGapFillConstants.FIELD_ENERGY_USE_START);
+    rec.endDate = (Date) row.get(BulkGapFillConstants.FIELD_ENERGY_USE_END);
+    rec.consumption = (Decimal) row.get(
+      BulkGapFillConstants.FIELD_ENERGY_USE_CONSUMPTION
+    );
+    rec.consumptionUnit = (String) row.get(
+      BulkGapFillConstants.FIELD_ENERGY_USE_CONSUMPTION_UNIT
+    );
+    rec.isGapFilled = (Boolean) row.get(
+      BulkGapFillConstants.FIELD_ENERGY_USE_IS_GAP_FILLED
+    );
     return rec;
   }
 
@@ -527,13 +555,16 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
       .newSObject();
 
     rec.put(BulkGapFillConstants.FIELD_ENERGY_USE_FOOTPRINT, footprintId);
-    rec.put('FuelType', gapSet.fuelType);
-    rec.put('StartDate', gap.startDate);
-    rec.put('EndDate', gap.endDate);
-    rec.put('EnergyConsumption', value);
-    rec.put('EnergyConsumptionUnit', gapSet.consumptionUnit);
-    rec.put('IsGapFilled', true);
-    rec.put('GapFillMethod', method);
+    rec.put(BulkGapFillConstants.FIELD_ENERGY_USE_FUEL_TYPE, gapSet.fuelType);
+    rec.put(BulkGapFillConstants.FIELD_ENERGY_USE_START, gap.startDate);
+    rec.put(BulkGapFillConstants.FIELD_ENERGY_USE_END, gap.endDate);
+    rec.put(BulkGapFillConstants.FIELD_ENERGY_USE_CONSUMPTION, value);
+    rec.put(
+      BulkGapFillConstants.FIELD_ENERGY_USE_CONSUMPTION_UNIT,
+      gapSet.consumptionUnit
+    );
+    rec.put(BulkGapFillConstants.FIELD_ENERGY_USE_IS_GAP_FILLED, true);
+    rec.put(BulkGapFillConstants.FIELD_ENERGY_USE_GAP_FILL_METHOD, method);
     return rec;
   }
 
@@ -561,12 +592,18 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
   }
 
   private BulkGapFillJobDetail__c baseDetail(SObject footprint) {
-    SObject asset = footprint.getSObject('StnryAssetEnvrSrc');
+    SObject asset = footprint.getSObject(
+      BulkGapFillConstants.REL_FOOTPRINT_ASSET
+    );
     return new BulkGapFillJobDetail__c(
       BulkGapFillJob__c = jobId,
       CarbonFootprintId__c = asText(footprint.get('Id')),
-      StationaryAssetId__c = asText(footprint.get('StnryAssetEnvrSrcId')),
-      StationaryAssetName__c = asset == null ? null : asText(asset.get('Name'))
+      StationaryAssetId__c = asText(
+        footprint.get(BulkGapFillConstants.FIELD_FOOTPRINT_ASSET)
+      ),
+      StationaryAssetName__c = asset == null
+        ? null
+        : asText(asset.get(BulkGapFillConstants.FIELD_ASSET_NAME))
     );
   }
 

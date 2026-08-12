@@ -176,12 +176,13 @@ touching only custom objects.
 
 Known gaps in this implementation, so nobody discovers them the hard way:
 
-- **NZC API names are only partly verified.** Every object name and every BEI field in
+- **Some NZC API names are unverified.** Every object name and every BEI field in
   `BulkGapFillConstants` is confirmed. The rest — the energy use, footprint, and asset
   field names carried over from the project spec — have not been checked against an org
-  with Net Zero Cloud installed. Run `BulkGapFillConstants.validateSchema()` against the
-  target org before the first deploy — the NZC queries are dynamic, so a clean deploy
-  proves nothing.
+  with Net Zero Cloud installed. `validateSchema()` now covers all of them, and the
+  dynamic SOQL is built from the same lists it validates, so a name cannot pass
+  validation while the queries use something else. Run it against the target org before
+  the first deploy — the queries are dynamic, so a clean deploy proves nothing.
 - **A benchmark missing the fuel type is skipped, quietly.** Intensity values are keyed
   by fuel type on the child `BldgEnrgyIntensityVal` records. When a benchmark has no row
   for the fuel type being filled, the fill resolves to a **Skipped** detail row rather
