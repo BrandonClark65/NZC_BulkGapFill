@@ -52,16 +52,45 @@ public with sharing class BulkGapFillConstants {
 
   // ---- Net Zero Cloud object API names ----------------------------------
   public static final String OBJ_ASSET = 'StnryAssetEnvrSrc';
-  public static final String OBJ_FOOTPRINT = 'StationaryAssetCarbonFootprint';
-  public static final String OBJ_ENERGY_USE = 'StationaryAssetEnergyUse';
-  public static final String OBJ_BUILDING_BEI = 'BldgEnergyIntensityValue';
-  public static final String OBJ_REGIONAL_BEI = 'RegionalBldgEnergyIntensity';
+  public static final String OBJ_FOOTPRINT = 'StnryAssetCrbnFtprnt';
+  public static final String OBJ_ENERGY_USE = 'StnryAssetEnrgyUse';
+
+  /**
+   * Benchmark header record, and the target of every BEI lookup. There is no
+   * separate regional BEI object: the regional lookup carried on the stationary
+   * asset points at a building energy intensity record too, so both benchmark
+   * fill methods resolve their value from this one object.
+   */
+  public static final String OBJ_BEI = 'BldgEnrgyIntensity';
+
+  /** Per-energy-type values belonging to a benchmark. */
+  public static final String OBJ_BEI_VALUE = 'BldgEnrgyIntensityVal';
+
+  // ---- Net Zero Cloud field API names -----------------------------------
+  /** Parent lookup from an energy use record to its carbon footprint. */
+  public static final String FIELD_ENERGY_USE_FOOTPRINT = 'StnryAssetCrbnFtprntId';
+
+  /** Custom (BEI Builder) benchmark lookup on the carbon footprint. */
+  public static final String FIELD_BEI_LOOKUP = 'BldgEnrgyIntensityId';
+
+  /**
+   * Regional (CBECS) benchmark lookup, auto-populated for US assets.
+   * TODO: verify against the target org - unlike the object names this one has
+   * no confirmed spelling, and it resolves to a BldgEnrgyIntensity record.
+   */
+  public static final String FIELD_REGIONAL_BEI_LOOKUP = 'RegionalBldgEnergyIntensityId';
+
+  /** Both BEI lookups, in the order they are selected and read. */
+  public static final List<String> BEI_LOOKUP_FIELDS = new List<String>{
+    FIELD_BEI_LOOKUP,
+    FIELD_REGIONAL_BEI_LOOKUP
+  };
 
   // Field holding the benchmark itself, in kWh per square metre per year.
-  // TODO: verify against the target org - the BEI objects expose several
-  // intensity fields and the correct one depends on how BEI Builder was configured.
-  public static final String FIELD_BUILDING_BEI_VALUE = 'EnergyIntensityValue';
-  public static final String FIELD_REGIONAL_BEI_VALUE = 'EnergyIntensityValue';
+  // TODO: verify against the target org - BldgEnrgyIntensity exposes several
+  // intensity fields, and the per-energy-type figures may instead live on the
+  // child BldgEnrgyIntensityVal records, which would make this a related query.
+  public static final String FIELD_BEI_VALUE = 'EnergyIntensityValue';
 
   // ---- Tuning -----------------------------------------------------------
   /** Conservative default: each footprint can fan out into many child inserts. */
@@ -118,8 +147,8 @@ public with sharing class BulkGapFillConstants {
       OBJ_ASSET,
       OBJ_FOOTPRINT,
       OBJ_ENERGY_USE,
-      OBJ_BUILDING_BEI,
-      OBJ_REGIONAL_BEI
+      OBJ_BEI,
+      OBJ_BEI_VALUE
     };
     for (String objName : required) {
       if (!globals.containsKey(objName)) {
@@ -127,12 +156,13 @@ public with sharing class BulkGapFillConstants {
       }
     }
 
+    problems.addAll(checkField(globals, OBJ_BEI, FIELD_BEI_VALUE));
     problems.addAll(
-      checkField(globals, OBJ_BUILDING_BEI, FIELD_BUILDING_BEI_VALUE)
+      checkField(globals, OBJ_ENERGY_USE, FIELD_ENERGY_USE_FOOTPRINT)
     );
-    problems.addAll(
-      checkField(globals, OBJ_REGIONAL_BEI, FIELD_REGIONAL_BEI_VALUE)
-    );
+    for (String lookup : BEI_LOOKUP_FIELDS) {
+      problems.addAll(checkField(globals, OBJ_FOOTPRINT, lookup));
+    }
     return problems;
   }
 

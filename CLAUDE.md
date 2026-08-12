@@ -15,7 +15,7 @@ Build a custom Salesforce solution that enables **bulk gap filling** for all Sta
 
 When energy use data is missing for a stationary asset (e.g., a utility bill wasn't received), the carbon footprint record for that asset will have gaps. Gap filling estimates those missing values so emissions calculations remain complete and auditable.
 
-The native wizard walks through three steps for a **single** `StationaryAssetCarbonFootprint` record:
+The native wizard walks through three steps for a **single** `StnryAssetCrbnFtprnt` record:
 
 1. **Associate orphan records** — links unmatched `EnergyUse` records to the carbon footprint record
 2. **Fix date issues** — corrects overlapping periods, missing start/end dates
@@ -34,33 +34,37 @@ The native wizard walks through three steps for a **single** `StationaryAssetCar
 
 ### Core Objects
 
-| Object                                | API Name                         | Purpose                                                                 |
-| ------------------------------------- | -------------------------------- | ----------------------------------------------------------------------- |
-| Stationary Asset Environmental Source | `StnryAssetEnvrSrc`              | Represents a physical stationary asset (building, warehouse, etc.)      |
-| Stationary Asset Carbon Footprint     | `StationaryAssetCarbonFootprint` | Annual carbon footprint record per asset per reporting year             |
-| Stationary Asset Energy Use           | `StationaryAssetEnergyUse`       | Individual energy consumption records (fuel type, date range, quantity) |
-| Building Energy Intensity Value       | `BldgEnergyIntensityValue`       | Custom BEI benchmarks created via BEI Builder                           |
-| Regional Building Energy Intensity    | `RegionalBldgEnergyIntensity`    | Preloaded CBECS benchmarks (auto-populated for US assets)               |
+| Object                                | API Name                | Purpose                                                                 |
+| ------------------------------------- | ----------------------- | ----------------------------------------------------------------------- |
+| Stationary Asset Environmental Source | `StnryAssetEnvrSrc`     | Represents a physical stationary asset (building, warehouse, etc.)      |
+| Stationary Asset Carbon Footprint     | `StnryAssetCrbnFtprnt`  | Annual carbon footprint record per asset per reporting year             |
+| Stationary Asset Energy Use           | `StnryAssetEnrgyUse`    | Individual energy consumption records (fuel type, date range, quantity) |
+| Building Energy Intensity             | `BldgEnrgyIntensity`    | BEI benchmark header; target of every BEI lookup                        |
+| Building Energy Intensity Value       | `BldgEnrgyIntensityVal` | Per-energy-type values belonging to a benchmark                         |
+
+There is **no** regional building energy intensity object. The regional lookup on the
+stationary asset points at a `BldgEnrgyIntensity` record like the custom one does, so
+both benchmark fill methods resolve against the same object.
 
 ### Key Fields on `StnryAssetEnvrSrc`
 
-- `RegionalBldgEnergyIntensityId` — auto-populated for US locations; gates Regional BEI fill method
+- `RegionalBldgEnergyIntensityId` — auto-populated for US locations; gates Regional BEI fill method. Points to a `BldgEnrgyIntensity` record
 - `OccupiedFloorArea` + `OccupiedFloorAreaUnit` (sqft or m²) — used in BEI calculations
 - `TotalFloorArea` + `TotalFloorAreaUnit`
 - `StationaryAssetType` — Office, Factory, Warehouse, Data Center, etc.
 - `RecordTypeId` — must be **Commercial Building** for native gap fill; our solution should handle all types
 
-### Key Fields on `StationaryAssetCarbonFootprint`
+### Key Fields on `StnryAssetCrbnFtprnt`
 
 - `StnryAssetEnvrSrcId` — parent asset lookup
 - `ReportingYear` — fiscal/calendar year being reported
-- `BldgEnergyIntensityId` — lookup to custom BEI (gates Building BEI fill method)
-- `RegionalBldgEnergyIntensityId` — lookup to CBECS benchmark
+- `BldgEnrgyIntensityId` — lookup to custom BEI (gates Building BEI fill method)
+- `RegionalBldgEnergyIntensityId` — lookup to the CBECS `BldgEnrgyIntensity` benchmark
 - Scope 1, 2, 3 rollup fields (auto-calculated from child energy use records)
 
-### Key Fields on `StationaryAssetEnergyUse`
+### Key Fields on `StnryAssetEnrgyUse`
 
-- `StationaryAssetCarbonFootprintId` — parent footprint record
+- `StnryAssetCrbnFtprntId` — parent footprint record
 - `FuelType` — electricity, natural gas, diesel, etc.
 - `StartDate` / `EndDate` — consumption period
 - `EnergyConsumption` + `EnergyConsumptionUnit`
@@ -93,7 +97,7 @@ DailyRate = (CustomBEI_kWh_per_m2 × OccupiedFloorArea_m2) / 365
 GapFillValue = DailyRate × GapDays
 ```
 
-**Requires**: `BldgEnergyIntensityId` populated on the carbon footprint record.
+**Requires**: `BldgEnrgyIntensityId` populated on the carbon footprint record.
 
 ### 3. Previous Year Daily Average
 
@@ -128,13 +132,13 @@ User provides a direct value. No formula — captured as input in the UI.
 
 ## Gap Detection Logic
 
-For each `StationaryAssetCarbonFootprint` record in scope:
+For each `StnryAssetCrbnFtprnt` record in scope:
 
 1. Determine the full reporting period (Jan 1 – Dec 31, or fiscal equivalent)
-2. For each fuel type associated with that asset, collect all `StationaryAssetEnergyUse` records
+2. For each fuel type associated with that asset, collect all `StnryAssetEnrgyUse` records
 3. Sort by `StartDate`
 4. Identify any periods within the reporting year not covered by an energy use record — these are gaps
-5. Identify orphan energy use records (no `StationaryAssetCarbonFootprintId`) that fall within the reporting period — offer to associate them
+5. Identify orphan energy use records (no `StnryAssetCrbnFtprntId`) that fall within the reporting period — offer to associate them
 6. Identify date issues: overlapping records, records with null start/end dates
 
 ---
@@ -144,8 +148,8 @@ For each `StationaryAssetCarbonFootprint` record in scope:
 ### Batch Apex
 
 - **`BulkGapFillBatch`** — implements `Database.Batchable<SObject>`, `Database.Stateful`
-  - `start()`: queries all `StationaryAssetCarbonFootprint` records matching user-selected filters (year, asset type, specific assets, etc.)
-  - `execute()`: for each record, runs gap detection, applies chosen fill method, inserts new `StationaryAssetEnergyUse` records with `IsGapFilled = true` and `GapFillMethod` stamped
+  - `start()`: queries all `StnryAssetCrbnFtprnt` records matching user-selected filters (year, asset type, specific assets, etc.)
+  - `execute()`: for each record, runs gap detection, applies chosen fill method, inserts new `StnryAssetEnrgyUse` records with `IsGapFilled = true` and `GapFillMethod` stamped
   - `finish()`: updates a custom `BulkGapFillJob__c` record with status, counts, and any errors
 - **`BulkGapFillService`** — stateless service class with the gap detection and fill calculation logic (called by batch; also callable from unit tests independently)
 - **`BulkGapFillJobScheduler`** — optional `Schedulable` wrapper to allow scheduled runs
@@ -187,7 +191,7 @@ A custom LWC (or small set of LWCs) that provides a portfolio-level gap fill exp
 ## Development Constraints & Notes
 
 - Salesforce API version: target **v62.0+** (Net Zero Cloud objects stable from v54.0)
-- All Net Zero Cloud objects (`StnryAssetEnvrSrc`, `StationaryAssetCarbonFootprint`, `StationaryAssetEnergyUse`, etc.) are fully queryable and writable via Apex — no managed package restrictions on CRUD
+- All Net Zero Cloud objects (`StnryAssetEnvrSrc`, `StnryAssetCrbnFtprnt`, `StnryAssetEnrgyUse`, etc.) are fully queryable and writable via Apex — no managed package restrictions on CRUD
 - The native gap fill wizard is in a managed package; do not try to extend or call it — build independently
 - Gap-filled records should be clearly tagged (`IsGapFilled__c` or the standard field if available) so they can be excluded from actuals-only reporting views
 - Batch size: start with 50 records per chunk; each chunk may generate many child inserts, so stay conservative to avoid governor limits
