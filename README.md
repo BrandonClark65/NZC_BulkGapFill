@@ -75,7 +75,7 @@ Each derives a daily consumption rate, then multiplies by the gap's inclusive da
 | Method                      | Daily rate                        | Requires                                           |
 | --------------------------- | --------------------------------- | -------------------------------------------------- |
 | Regional BEI                | `(BEI × floorAreaSqM) / 365`      | `RegionalBldgEnergyIntensityId` on the footprint   |
-| Building BEI                | `(BEI × floorAreaSqM) / 365`      | `BldgEnrgyIntensityId` on the footprint            |
+| Building BEI                | `(BEI × floorAreaSqM) / 365`      | `BuildingEnergyIntensityId` on the footprint       |
 | Previous Year Daily Average | `priorYearTotal / 365`            | Prior-year records for the same fuel type          |
 | Current Year Daily Average  | `currentYearTotal / daysWithData` | At least one current-year record for the fuel type |
 | Manual                      | operator-supplied                 | A daily rate on the request                        |
@@ -176,12 +176,12 @@ touching only custom objects.
 
 Known gaps in this implementation, so nobody discovers them the hard way:
 
-- **NZC API names are only partly verified.** The object names in
-  `BulkGapFillConstants` are confirmed, but the field names have not been checked
-  against an org with Net Zero Cloud installed. `FIELD_BEI_VALUE` and
-  `FIELD_REGIONAL_BEI_LOOKUP` are the least certain and are marked with a `TODO`.
-  Run `BulkGapFillConstants.validateSchema()` against the target org before the
-  first deploy — the NZC queries are dynamic, so a clean deploy proves nothing.
+- **NZC API names are only partly verified.** The object names and the BEI lookup
+  fields in `BulkGapFillConstants` are confirmed; the remaining field names have not
+  been checked against an org with Net Zero Cloud installed. `FIELD_BEI_VALUE` is the
+  least certain and is marked with a `TODO`. Run
+  `BulkGapFillConstants.validateSchema()` against the target org before the first
+  deploy — the NZC queries are dynamic, so a clean deploy proves nothing.
 - **BEI values may live on the child object.** `loadBenchmarks()` reads
   `FIELD_BEI_VALUE` straight off the `BldgEnrgyIntensity` record the lookup points
   to. If the per-energy-type figures actually sit on `BldgEnrgyIntensityVal`, that

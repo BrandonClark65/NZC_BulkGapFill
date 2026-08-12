@@ -58,9 +58,13 @@ both benchmark fill methods resolve against the same object.
 
 - `StnryAssetEnvrSrcId` — parent asset lookup
 - `ReportingYear` — fiscal/calendar year being reported
-- `BldgEnrgyIntensityId` — lookup to custom BEI (gates Building BEI fill method)
-- `RegionalBldgEnergyIntensityId` — lookup to the CBECS `BldgEnrgyIntensity` benchmark
+- `BuildingEnergyIntensityId` — lookup to custom BEI (gates Building BEI fill method)
+- `RegionalBldgEnergyIntensityId` — lookup to the CBECS benchmark
 - Scope 1, 2, 3 rollup fields (auto-calculated from child energy use records)
+
+Both BEI lookups point at a `BldgEnrgyIntensity` record. The two field names spell
+`Building` differently — unabbreviated on the custom lookup, `Bldg` on the regional
+one — and neither matches the object's own `BldgEnrgy` spelling.
 
 ### Key Fields on `StnryAssetEnrgyUse`
 
@@ -97,7 +101,7 @@ DailyRate = (CustomBEI_kWh_per_m2 × OccupiedFloorArea_m2) / 365
 GapFillValue = DailyRate × GapDays
 ```
 
-**Requires**: `BldgEnrgyIntensityId` populated on the carbon footprint record.
+**Requires**: `BuildingEnergyIntensityId` populated on the carbon footprint record.
 
 ### 3. Previous Year Daily Average
 

@@ -70,14 +70,14 @@ public with sharing class BulkGapFillConstants {
   /** Parent lookup from an energy use record to its carbon footprint. */
   public static final String FIELD_ENERGY_USE_FOOTPRINT = 'StnryAssetCrbnFtprntId';
 
-  /** Custom (BEI Builder) benchmark lookup on the carbon footprint. */
-  public static final String FIELD_BEI_LOOKUP = 'BldgEnrgyIntensityId';
-
   /**
-   * Regional (CBECS) benchmark lookup, auto-populated for US assets.
-   * TODO: verify against the target org - unlike the object names this one has
-   * no confirmed spelling, and it resolves to a BldgEnrgyIntensity record.
+   * Custom (BEI Builder) benchmark lookup on the carbon footprint. Note the
+   * unabbreviated `Building` here against the abbreviated `Bldg` in the regional
+   * lookup below - neither field name follows the object's own spelling.
    */
+  public static final String FIELD_BEI_LOOKUP = 'BuildingEnergyIntensityId';
+
+  /** Regional (CBECS) benchmark lookup, auto-populated for US assets. */
   public static final String FIELD_REGIONAL_BEI_LOOKUP = 'RegionalBldgEnergyIntensityId';
 
   /** Both BEI lookups, in the order they are selected and read. */
