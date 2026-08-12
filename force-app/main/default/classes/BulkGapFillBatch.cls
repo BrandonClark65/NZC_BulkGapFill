@@ -535,8 +535,10 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
     rec.consumptionUnit = (String) row.get(
       BulkGapFillConstants.FIELD_ENERGY_USE_CONSUMPTION_UNIT
     );
-    rec.isGapFilled = (Boolean) row.get(
-      BulkGapFillConstants.FIELD_ENERGY_USE_IS_GAP_FILLED
+    // No gap-filled boolean exists on the object, so the fill method standing in
+    // for one: populated means the record was estimated, not measured.
+    rec.isGapFilled = String.isNotBlank(
+      (String) row.get(BulkGapFillConstants.FIELD_ENERGY_USE_FILL_METHOD)
     );
     return rec;
   }
@@ -563,8 +565,8 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
       BulkGapFillConstants.FIELD_ENERGY_USE_CONSUMPTION_UNIT,
       gapSet.consumptionUnit
     );
-    rec.put(BulkGapFillConstants.FIELD_ENERGY_USE_IS_GAP_FILLED, true);
-    rec.put(BulkGapFillConstants.FIELD_ENERGY_USE_GAP_FILL_METHOD, method);
+    // Stamping the method is also what marks the record as gap-filled.
+    rec.put(BulkGapFillConstants.FIELD_ENERGY_USE_FILL_METHOD, method);
     return rec;
   }
 

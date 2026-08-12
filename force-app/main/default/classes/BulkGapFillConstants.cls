@@ -19,7 +19,7 @@
 public with sharing class BulkGapFillConstants {
   // ---- Fill methods -----------------------------------------------------
   // These tokens are written to BulkGapFillJob__c.DefaultFillMethod__c and to
-  // the GapFillMethod field on generated energy use records, so they must match
+  // DataGapFillingMethodName on generated energy use records, so they must match
   // the picklist API values on both.
   public static final String METHOD_REGIONAL_BEI = 'Regional BEI';
   public static final String METHOD_BUILDING_BEI = 'Building BEI';
@@ -125,12 +125,15 @@ public with sharing class BulkGapFillConstants {
   public static final String FIELD_ENERGY_USE_FUEL_TYPE = 'FuelType';
   public static final String FIELD_ENERGY_USE_START = 'StartDate';
   public static final String FIELD_ENERGY_USE_END = 'EndDate';
-  public static final String FIELD_ENERGY_USE_CONSUMPTION = 'EnergyConsumption';
-  public static final String FIELD_ENERGY_USE_CONSUMPTION_UNIT = 'EnergyConsumptionUnit';
-  public static final String FIELD_ENERGY_USE_IS_GAP_FILLED = 'IsGapFilled';
+  public static final String FIELD_ENERGY_USE_CONSUMPTION = 'FuelConsumption';
+  public static final String FIELD_ENERGY_USE_CONSUMPTION_UNIT = 'FuelConsumptionUnit';
 
-  /** Stamped on generated records for the audit trail; written, never read back. */
-  public static final String FIELD_ENERGY_USE_GAP_FILL_METHOD = 'GapFillMethod';
+  /**
+   * Which fill method produced a record. The object carries no gap-filled boolean,
+   * so this doubles as the marker: a populated value means the record was estimated
+   * rather than measured, and that is what separates gap fills from actuals.
+   */
+  public static final String FIELD_ENERGY_USE_FILL_METHOD = 'DataGapFillingMethodName';
 
   /** Energy use fields the batch selects, beyond `Id`. */
   public static final List<String> ENERGY_USE_FIELDS = new List<String>{
@@ -140,7 +143,7 @@ public with sharing class BulkGapFillConstants {
     FIELD_ENERGY_USE_END,
     FIELD_ENERGY_USE_CONSUMPTION,
     FIELD_ENERGY_USE_CONSUMPTION_UNIT,
-    FIELD_ENERGY_USE_IS_GAP_FILLED
+    FIELD_ENERGY_USE_FILL_METHOD
   };
 
   // ---- BldgEnrgyIntensityVal fields -------------------------------------
@@ -252,13 +255,10 @@ public with sharing class BulkGapFillConstants {
 
     // Every field the batch reads or writes. These are the same lists the dynamic
     // SOQL is built from, so validation cannot drift from what actually runs.
-    List<String> energyUseFields = new List<String>(ENERGY_USE_FIELDS);
-    energyUseFields.add(FIELD_ENERGY_USE_GAP_FILL_METHOD);
-
     Map<String, List<String>> fieldsByObject = new Map<String, List<String>>{
       OBJ_ASSET => ASSET_FIELDS,
       OBJ_FOOTPRINT => FOOTPRINT_FIELDS,
-      OBJ_ENERGY_USE => energyUseFields,
+      OBJ_ENERGY_USE => ENERGY_USE_FIELDS,
       OBJ_BEI_VALUE => new List<String>{
         FIELD_BEI_VALUE_PARENT,
         FIELD_BEI_VALUE_FUEL_TYPE,

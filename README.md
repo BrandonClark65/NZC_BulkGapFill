@@ -194,6 +194,9 @@ Known gaps in this implementation, so nobody discovers them the hard way:
 - **`skipAlreadyFilled` is not enforced.** It is carried on the request but not yet
   applied in `execute()`, so re-running against the same period will create duplicate
   gap-filled records. Use dry run and check the detail rows before a repeat run.
+  `EnergyRecord.isGapFilled` is already populated for when it is implemented — the
+  energy use object has no gap-filled boolean, so it is derived from
+  `DataGapFillingMethodName` being populated.
 - **No end-to-end batch test.** `BulkGapFillBatch` has no test class, because
   exercising it requires NZC data. Coverage will be short of the 75% deployment
   threshold until that exists.

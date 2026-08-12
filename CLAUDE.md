@@ -83,9 +83,12 @@ The benchmark header holds no intensity figure itself. It lives on the child
 - `StnryAssetCrbnFtprntId` — parent footprint record
 - `FuelType` — electricity, natural gas, diesel, etc.
 - `StartDate` / `EndDate` — consumption period
-- `EnergyConsumption` + `EnergyConsumptionUnit`
-- `IsGapFilled` (Boolean) — flag to distinguish estimated vs. actual records
-- `GapFillMethod` — which method was used (for audit trail)
+- `FuelConsumption` + `FuelConsumptionUnit`
+- `DataGapFillingMethodName` — which method produced the record (audit trail)
+
+There is **no** gap-filled boolean on this object. `DataGapFillingMethodName` is the
+marker: populated means estimated, blank means measured. Anything that needs to tell
+gap fills from actuals — reporting views, `skipAlreadyFilled` — keys off that.
 
 ---
 
@@ -122,7 +125,7 @@ and a `BldgEnrgyIntensityVal` under that benchmark for the fuel type being fille
 Extrapolates from prior year actual data for the same fuel type.
 
 ```
-PriorYearTotal = SUM(EnergyConsumption) WHERE ReportingYear = CurrentYear - 1 AND FuelType = X
+PriorYearTotal = SUM(FuelConsumption) WHERE ReportingYear = CurrentYear - 1 AND FuelType = X
 DailyRate = PriorYearTotal / 365
 GapFillValue = DailyRate × GapDays
 ```
@@ -135,7 +138,7 @@ Extrapolates from existing year-to-date records.
 
 ```
 CurrentYearDaysWithData = SUM(EndDate - StartDate) across existing records for this fuel type
-CurrentYearTotal = SUM(EnergyConsumption) for this fuel type this year
+CurrentYearTotal = SUM(FuelConsumption) for this fuel type this year
 DailyRate = CurrentYearTotal / CurrentYearDaysWithData
 GapFillValue = DailyRate × GapDays
 ```
@@ -167,7 +170,7 @@ For each `StnryAssetCrbnFtprnt` record in scope:
 
 - **`BulkGapFillBatch`** — implements `Database.Batchable<SObject>`, `Database.Stateful`
   - `start()`: queries all `StnryAssetCrbnFtprnt` records matching user-selected filters (year, asset type, specific assets, etc.)
-  - `execute()`: for each record, runs gap detection, applies chosen fill method, inserts new `StnryAssetEnrgyUse` records with `IsGapFilled = true` and `GapFillMethod` stamped
+  - `execute()`: for each record, runs gap detection, applies chosen fill method, inserts new `StnryAssetEnrgyUse` records with `DataGapFillingMethodName` stamped
   - `finish()`: updates a custom `BulkGapFillJob__c` record with status, counts, and any errors
 - **`BulkGapFillService`** — stateless service class with the gap detection and fill calculation logic (called by batch; also callable from unit tests independently)
 - **`BulkGapFillJobScheduler`** — optional `Schedulable` wrapper to allow scheduled runs
@@ -211,7 +214,7 @@ A custom LWC (or small set of LWCs) that provides a portfolio-level gap fill exp
 - Salesforce API version: target **v62.0+** (Net Zero Cloud objects stable from v54.0)
 - All Net Zero Cloud objects (`StnryAssetEnvrSrc`, `StnryAssetCrbnFtprnt`, `StnryAssetEnrgyUse`, etc.) are fully queryable and writable via Apex — no managed package restrictions on CRUD
 - The native gap fill wizard is in a managed package; do not try to extend or call it — build independently
-- Gap-filled records should be clearly tagged (`IsGapFilled__c` or the standard field if available) so they can be excluded from actuals-only reporting views
+- Gap-filled records are tagged by `DataGapFillingMethodName` — the object has no gap-filled boolean — so actuals-only reporting views should filter on that field being blank
 - Batch size: start with 50 records per chunk; each chunk may generate many child inserts, so stay conservative to avoid governor limits
 - All DML should use `Database.insert(records, false)` with partial success handling so one bad asset doesn't abort the entire batch
 

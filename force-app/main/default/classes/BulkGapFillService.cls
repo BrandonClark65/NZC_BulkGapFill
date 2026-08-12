@@ -102,6 +102,12 @@ public with sharing class BulkGapFillService {
     public Date endDate;
     public Decimal consumption;
     public String consumptionUnit;
+
+    /**
+     * Whether this record was estimated rather than measured. Derived by the
+     * caller from `DataGapFillingMethodName` being populated — the energy use
+     * object carries no boolean of its own.
+     */
     public Boolean isGapFilled;
 
     /**
