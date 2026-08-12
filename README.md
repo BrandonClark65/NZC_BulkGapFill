@@ -172,6 +172,15 @@ touching only custom objects.
 
 ---
 
+## Deployment note
+
+`Bulk_Gap_Fill_Admin` carries the field-level security for both custom objects.
+Custom fields deploy with FLS off, so a user assigned only the object permissions
+gets "fields being inaccessible on SObject BulkGapFillJob__c" the moment a run is
+launched. Assign the permission set — do not rely on object access alone.
+
+---
+
 ## Current limitations
 
 Known gaps in this implementation, so nobody discovers them the hard way:

@@ -147,7 +147,9 @@ public with sharing class BulkGapFillController {
         return request.carbonFootprintIds.size();
       }
 
-      Integer scopeYear = request.reportingYear;
+      String scopeYear = BulkGapFillConstants.reportingYearBind(
+        request.reportingYear
+      );
       List<Id> scopeAssetIds = request.stationaryAssetIds;
       List<String> scopeAssetTypes = request.assetTypes;
 

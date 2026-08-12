@@ -446,6 +446,13 @@ private class BulkGapFillServiceTest {
   }
 
   @IsTest
+  static void reportingYearBindsAsText() {
+    // ReportingYear is a text column on the NZC objects; an Integer bind throws.
+    Assert.areEqual('2025', BulkGapFillConstants.reportingYearBind(2025));
+    Assert.isNull(BulkGapFillConstants.reportingYearBind(null));
+  }
+
+  @IsTest
   static void benchmarkNormalizesToKwhPerSquareMetre() {
     Assert.areEqual(
       200,

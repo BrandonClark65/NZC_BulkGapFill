@@ -205,6 +205,22 @@ public with sharing class BulkGapFillConstants {
   }
 
   /**
+   * @description Converts a reporting year for use as a SOQL bind.
+   *
+   * `ReportingYear` is a **text** column on the Net Zero Cloud objects, so binding
+   * the Integer the request carries fails at runtime with "invalid bind expression
+   * type of Integer for column of type String". Every NZC query filtering on the
+   * year goes through here; `BulkGapFillJob__c.ReportingYear__c` is our own Number
+   * field and is unaffected.
+   *
+   * @param year The reporting year, or null.
+   * @return The year as text, or null when `year` is null.
+   */
+  public static String reportingYearBind(Integer year) {
+    return year == null ? null : String.valueOf(year);
+  }
+
+  /**
    * @description Normalizes a benchmark to kWh per square metre, the unit the fill
    * math works in.
    *
