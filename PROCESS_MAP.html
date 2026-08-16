@@ -1,0 +1,2710 @@
+<title>Bulk Gap Fill Process Map</title>
+
+<style>
+  /* ---- Tokens: light is the base, both dark states redefine only tokens ---- */
+  :root {
+    --ground: #f6f8f6;
+    --surface: #ffffff;
+    --surface-sunk: #eef2ef;
+    --ink: #14201b;
+    --ink-soft: #3c4a43;
+    --ink-muted: #64756c;
+    --rule: #dbe3dd;
+    --rule-strong: #bfcdc4;
+    --accent: #1f5f4b;
+    --accent-ink: #17493a;
+    --accent-wash: #e3efe9;
+    --warn: #8a5a12;
+    --warn-wash: #f7eeda;
+    --danger: #8e2f2a;
+    --danger-wash: #f8e8e6;
+    --info: #2c4f7c;
+    --info-wash: #e5ecf6;
+    --shadow:
+      0 1px 2px rgba(20, 32, 27, 0.06), 0 8px 24px -16px rgba(20, 32, 27, 0.35);
+
+    --font-display:
+      ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Consolas,
+      "Liberation Mono", monospace;
+    --font-body:
+      system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+      sans-serif;
+
+    --measure: 68ch;
+    --wide: 1080px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0e1411;
+      --surface: #161e1a;
+      --surface-sunk: #111815;
+      --ink: #e8eeea;
+      --ink-soft: #c2cec7;
+      --ink-muted: #93a29a;
+      --rule: #28322c;
+      --rule-strong: #3b4941;
+      --accent: #5fbf9b;
+      --accent-ink: #7ed0b0;
+      --accent-wash: #172a23;
+      --warn: #d9a441;
+      --warn-wash: #2b2314;
+      --danger: #e28e87;
+      --danger-wash: #2d1a19;
+      --info: #8fb3e0;
+      --info-wash: #16202e;
+      --shadow:
+        0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -16px rgba(0, 0, 0, 0.8);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0e1411;
+    --surface: #161e1a;
+    --surface-sunk: #111815;
+    --ink: #e8eeea;
+    --ink-soft: #c2cec7;
+    --ink-muted: #93a29a;
+    --rule: #28322c;
+    --rule-strong: #3b4941;
+    --accent: #5fbf9b;
+    --accent-ink: #7ed0b0;
+    --accent-wash: #172a23;
+    --warn: #d9a441;
+    --warn-wash: #2b2314;
+    --danger: #e28e87;
+    --danger-wash: #2d1a19;
+    --info: #8fb3e0;
+    --info-wash: #16202e;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -16px rgba(0, 0, 0, 0.8);
+  }
+
+  /* ---- Base ---- */
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: var(--wide);
+    margin: 0 auto;
+    padding: 56px 24px 96px;
+    display: flex;
+    flex-direction: column;
+    gap: 64px;
+  }
+
+  .prose {
+    max-width: var(--measure);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  p {
+    margin: 0;
+    color: var(--ink-soft);
+  }
+
+  a {
+    color: var(--accent-ink);
+    text-underline-offset: 3px;
+  }
+
+  code {
+    font-family: var(--font-display);
+    font-size: 0.88em;
+    background: var(--surface-sunk);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 0.08em 0.34em;
+    color: var(--ink);
+    word-break: break-word;
+  }
+
+  strong {
+    color: var(--ink);
+    font-weight: 620;
+  }
+
+  /* ---- Masthead ---- */
+  .masthead {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 40px;
+  }
+
+  .eyebrow {
+    font-family: var(--font-display);
+    font-size: 12px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0;
+  }
+
+  h1 {
+    font-family: var(--font-display);
+    font-size: clamp(30px, 5vw, 46px);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    font-weight: 600;
+    margin: 0;
+    text-wrap: balance;
+    color: var(--ink);
+  }
+
+  .lede {
+    max-width: var(--measure);
+    font-size: 18px;
+    color: var(--ink-soft);
+  }
+
+  .facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 28px;
+    padding-top: 8px;
+  }
+
+  .fact {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .fact b {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .fact span {
+    font-family: var(--font-display);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+  }
+
+  /* ---- Contents ---- */
+  .toc {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .toc a {
+    display: inline-block;
+    font-family: var(--font-display);
+    font-size: 12.5px;
+    text-decoration: none;
+    color: var(--ink-soft);
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    padding: 5px 13px;
+  }
+
+  .toc a:hover,
+  .toc a:focus-visible {
+    border-color: var(--accent);
+    color: var(--accent-ink);
+  }
+
+  /* ---- Sections ---- */
+  section {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    scroll-margin-top: 24px;
+  }
+
+  h2 {
+    font-family: var(--font-display);
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 0;
+    color: var(--ink);
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+  }
+
+  h2::before {
+    content: attr(data-idx);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    flex: none;
+  }
+
+  h3 {
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    margin: 0;
+    color: var(--ink);
+  }
+
+  /* ---- Figures ---- */
+  figure {
+    margin: 0;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+
+  .fig-scroll {
+    overflow-x: auto;
+    padding: 22px 22px 6px;
+  }
+
+  figure svg {
+    display: block;
+    width: 100%;
+    min-width: 640px;
+    max-width: 100%;
+    height: auto;
+    color: var(--ink-muted);
+  }
+
+  figcaption {
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: var(--ink-muted);
+    padding: 14px 22px 18px;
+    border-top: 1px solid var(--rule);
+    background: var(--surface-sunk);
+  }
+
+  figcaption b {
+    color: var(--ink-soft);
+    font-weight: 620;
+  }
+
+  /* SVG primitives */
+  .d-box {
+    fill: var(--surface);
+    stroke: var(--rule-strong);
+    stroke-width: 1;
+  }
+
+  .d-box-sunk {
+    fill: var(--surface-sunk);
+    stroke: var(--rule-strong);
+    stroke-width: 1;
+  }
+
+  .d-box-accent {
+    fill: var(--accent-wash);
+    stroke: var(--accent);
+    stroke-width: 1;
+  }
+
+  .d-box-warn {
+    fill: var(--warn-wash);
+    stroke: var(--warn);
+    stroke-width: 1;
+  }
+
+  .d-box-danger {
+    fill: var(--danger-wash);
+    stroke: var(--danger);
+    stroke-width: 1;
+  }
+
+  .d-box-info {
+    fill: var(--info-wash);
+    stroke: var(--info);
+    stroke-width: 1;
+  }
+
+  .d-group {
+    fill: none;
+    stroke: var(--rule-strong);
+    stroke-width: 1;
+    stroke-dasharray: 4 4;
+  }
+
+  .d-group-accent {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 1;
+    stroke-dasharray: 4 4;
+  }
+
+  .d-line {
+    stroke: var(--ink-muted);
+    stroke-width: 1.25;
+    fill: none;
+  }
+
+  .d-line-accent {
+    stroke: var(--accent);
+    stroke-width: 1.5;
+    fill: none;
+  }
+
+  .d-dash {
+    stroke: var(--ink-muted);
+    stroke-width: 1.1;
+    fill: none;
+    stroke-dasharray: 5 4;
+  }
+
+  .d-life {
+    stroke: var(--rule-strong);
+    stroke-width: 1;
+    stroke-dasharray: 3 5;
+  }
+
+  text {
+    font-family: var(--font-body);
+    fill: var(--ink);
+  }
+
+  .t-title {
+    font-family: var(--font-display);
+    font-size: 12.5px;
+    font-weight: 600;
+    fill: var(--ink);
+  }
+
+  .t-sub {
+    font-size: 11.5px;
+    fill: var(--ink-muted);
+  }
+
+  .t-mono {
+    font-family: var(--font-display);
+    font-size: 11.5px;
+    fill: var(--ink-soft);
+  }
+
+  .t-edge {
+    font-family: var(--font-display);
+    font-size: 11px;
+    fill: var(--ink-muted);
+  }
+
+  .t-band {
+    font-family: var(--font-display);
+    font-size: 10.5px;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    fill: var(--accent);
+  }
+
+  .t-accent {
+    fill: var(--accent-ink);
+  }
+
+  .t-warn {
+    fill: var(--warn);
+  }
+
+  .t-danger {
+    fill: var(--danger);
+  }
+
+  /* ---- Tables ---- */
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+  }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 640px;
+    font-size: 14px;
+  }
+
+  th {
+    text-align: left;
+    font-family: var(--font-display);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    font-weight: 600;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--rule-strong);
+    background: var(--surface-sunk);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--rule);
+    color: var(--ink-soft);
+    vertical-align: top;
+  }
+
+  tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
+  td:first-child {
+    color: var(--ink);
+  }
+
+  .num {
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  /* ---- Stage list ---- */
+  .stages {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 2px;
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--rule);
+    box-shadow: var(--shadow);
+  }
+
+  .stages li {
+    background: var(--surface);
+    padding: 16px 20px;
+    display: grid;
+    grid-template-columns: 30px 1fr;
+    gap: 4px 16px;
+    align-items: baseline;
+  }
+
+  .stages .n {
+    font-family: var(--font-display);
+    font-size: 12px;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .stages h3 {
+    margin: 0;
+  }
+
+  .stages p {
+    grid-column: 2;
+    font-size: 14.5px;
+  }
+
+  /* ---- Callouts ---- */
+  .note {
+    border-left: 3px solid var(--accent);
+    background: var(--accent-wash);
+    border-radius: 0 8px 8px 0;
+    padding: 14px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: var(--measure);
+  }
+
+  .note.warn {
+    border-left-color: var(--warn);
+    background: var(--warn-wash);
+  }
+
+  .note p {
+    font-size: 14.5px;
+    color: var(--ink-soft);
+  }
+
+  .note .label {
+    font-family: var(--font-display);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+  }
+
+  .note.warn .label {
+    color: var(--warn);
+  }
+
+  /* ---- Status pills ---- */
+  .pill {
+    display: inline-block;
+    font-family: var(--font-display);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    padding: 2px 9px;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+    white-space: nowrap;
+  }
+
+  .pill.ok {
+    color: var(--accent-ink);
+  }
+  .pill.warn {
+    color: var(--warn);
+  }
+  .pill.bad {
+    color: var(--danger);
+  }
+  .pill.info {
+    color: var(--info);
+  }
+  .pill.neutral {
+    color: var(--ink-muted);
+  }
+
+  hr {
+    border: 0;
+    border-top: 1px solid var(--rule);
+    margin: 0;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      animation: none !important;
+      transition: none !important;
+    }
+  }
+
+  @media (max-width: 600px) {
+    .page {
+      padding: 36px 16px 72px;
+      gap: 48px;
+    }
+    .fig-scroll {
+      padding: 16px 16px 4px;
+    }
+  }
+</style>
+
+<div class="page">
+  <header class="masthead">
+    <p class="eyebrow">NZC_BulkGapFill · developer orientation</p>
+    <h1>Bulk Gap Fill Process Map</h1>
+    <p class="lede">
+      How the pieces of this repo fit together: a Lightning wizard hands a
+      serialized request to an Apex controller, which launches a stateful batch
+      that detects missing energy-use periods across a whole portfolio, prices
+      each gap with one of five fill methods, and writes both the estimated
+      records and an audit trail the wizard reads back.
+    </p>
+    <div class="facts">
+      <div class="fact"><b>6</b><span>Apex classes</span></div>
+      <div class="fact"><b>4</b><span>LWC components</span></div>
+      <div class="fact"><b>2</b><span>Custom objects</span></div>
+      <div class="fact"><b>5</b><span>Fill methods</span></div>
+      <div class="fact"><b>50</b><span>Footprints per chunk</span></div>
+      <div class="fact"><b>3s</b><span>Monitor poll</span></div>
+    </div>
+    <nav aria-label="Contents">
+      <ul class="toc">
+        <li><a href="#shape">The shape of the system</a></li>
+        <li><a href="#lifecycle">One run, end to end</a></li>
+        <li><a href="#chunk">Inside one chunk</a></li>
+        <li><a href="#gaps">How gaps are found</a></li>
+        <li><a href="#rate">How a gap gets a number</a></li>
+        <li><a href="#writes">What gets written</a></li>
+        <li><a href="#config">Config → behaviour</a></li>
+        <li><a href="#running">Running it</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <!-- ================= 1. SHAPE ================= -->
+  <section id="shape">
+    <h2 data-idx="01">The shape of the system</h2>
+    <div class="prose">
+      <p>
+        Three tiers, and the boundary between them matters more than any single
+        class. The browser tier never touches Net Zero Cloud objects; it only
+        speaks JSON to <code>BulkGapFillController</code>. The controller does
+        no gap logic; it validates, records, and enqueues. Everything that reads
+        or writes NZC data lives in <code>BulkGapFillBatch</code>, and the
+        arithmetic it applies lives in <code>BulkGapFillService</code>, which
+        deliberately accepts no SObjects at all.
+      </p>
+    </div>
+
+    <figure>
+      <div class="fig-scroll">
+        <svg
+          viewBox="0 0 1000 520"
+          role="img"
+          aria-label="Three-tier map: four Lightning web components call six controller methods; the controller creates a job record and enqueues the batch; the batch reads Net Zero Cloud objects, inserts energy use records, and updates the job objects."
+        >
+          <defs>
+            <marker
+              id="a1"
+              viewBox="0 0 10 10"
+              refX="9"
+              refY="5"
+              markerWidth="7"
+              markerHeight="7"
+              orient="auto-start-reverse"
+            >
+              <path d="M0,0 L10,5 L0,10 z" fill="currentColor" />
+            </marker>
+            <marker
+              id="a1x"
+              viewBox="0 0 10 10"
+              refX="9"
+              refY="5"
+              markerWidth="7"
+              markerHeight="7"
+              orient="auto-start-reverse"
+            >
+              <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)" />
+            </marker>
+          </defs>
+
+          <!-- band labels -->
+          <text class="t-band" x="40" y="26">Browser · Lightning</text>
+          <text class="t-band" x="360" y="26">Apex</text>
+          <text class="t-band" x="740" y="26">Salesforce data</text>
+
+          <!-- LWC column -->
+          <rect
+            class="d-box-accent"
+            x="40"
+            y="46"
+            width="250"
+            height="52"
+            rx="6"
+          />
+          <text class="t-title t-accent" x="56" y="68">bulkGapFillWizard</text>
+          <text class="t-sub" x="56" y="86">
+            owns currentStep + jobId · the only exposed component
+          </text>
+
+          <path class="d-line" d="M165,98 L165,112 L28,112 L28,278" />
+          <path class="d-line" d="M28,148 L40,148" marker-end="url(#a1)" />
+          <path class="d-line" d="M28,208 L40,208" marker-end="url(#a1)" />
+          <path class="d-line" d="M28,268 L40,268" marker-end="url(#a1)" />
+
+          <rect class="d-box" x="40" y="126" width="250" height="46" rx="6" />
+          <text class="t-title" x="56" y="145">bulkGapFillConfigure</text>
+          <text class="t-mono" x="56" y="162">
+            → getConfigOptions · count · launchRun
+          </text>
+
+          <rect class="d-box" x="40" y="186" width="250" height="46" rx="6" />
+          <text class="t-title" x="56" y="205">bulkGapFillMonitor</text>
+          <text class="t-mono" x="56" y="222">
+            → getJobStatus every 3s · abortRun
+          </text>
+
+          <rect class="d-box" x="40" y="246" width="250" height="46" rx="6" />
+          <text class="t-title" x="56" y="265">bulkGapFillResults</text>
+          <text class="t-mono" x="56" y="282">
+            → getJobDetails · CSV export
+          </text>
+
+          <rect
+            class="d-box-sunk"
+            x="40"
+            y="310"
+            width="250"
+            height="44"
+            rx="6"
+          />
+          <text class="t-sub" x="56" y="329">
+            Bulk_Gap_Fill tab → Bulk_Gap_Fill
+          </text>
+          <text class="t-sub" x="56" y="345">FlexiPage → wizard</text>
+
+          <!-- LWC to controller -->
+          <path
+            class="d-line-accent"
+            d="M290,209 L325,209 L325,98 L360,98"
+            marker-end="url(#a1x)"
+          />
+          <text class="t-edge t-accent" x="296" y="224">@AuraEnabled</text>
+
+          <!-- Apex column -->
+          <rect
+            class="d-box-accent"
+            x="360"
+            y="46"
+            width="300"
+            height="104"
+            rx="6"
+          />
+          <text class="t-title t-accent" x="376" y="68">
+            BulkGapFillController
+          </text>
+          <text class="t-mono" x="376" y="88">
+            getConfigOptions · countFootprintsInScope
+          </text>
+          <text class="t-mono" x="376" y="106">
+            launchRun · getJobStatus · abortRun
+          </text>
+          <text class="t-mono" x="376" y="124">
+            getJobDetails · getRecentJobs
+          </text>
+          <text class="t-sub" x="376" y="142">
+            every failure wrapped as AuraHandledException
+          </text>
+
+          <rect class="d-box" x="360" y="164" width="300" height="44" rx="6" />
+          <text class="t-title" x="376" y="183">BulkGapFillRequest</text>
+          <text class="t-sub" x="376" y="199">
+            DTO + validate() · serialized onto the job row
+          </text>
+
+          <path class="d-line" d="M510,150 L510,164" marker-end="url(#a1)" />
+          <path class="d-line" d="M510,208 L510,232" marker-end="url(#a1)" />
+          <text class="t-edge" x="518" y="224">executeBatch</text>
+
+          <rect
+            class="d-box-accent"
+            x="360"
+            y="232"
+            width="300"
+            height="76"
+            rx="6"
+          />
+          <text class="t-title t-accent" x="376" y="252">BulkGapFillBatch</text>
+          <text class="t-sub" x="376" y="270">
+            Batchable + Stateful · dynamic SOQL
+          </text>
+          <text class="t-mono" x="376" y="288">
+            start() · execute() ×N · finish()
+          </text>
+          <text class="t-sub" x="376" y="302">
+            carries roll-up counters across chunks
+          </text>
+
+          <rect class="d-box" x="360" y="330" width="142" height="60" rx="6" />
+          <text class="t-title" x="374" y="350">…Service</text>
+          <text class="t-sub" x="374" y="366">gap detection</text>
+          <text class="t-sub" x="374" y="381">+ rate maths</text>
+
+          <rect class="d-box" x="518" y="330" width="142" height="60" rx="6" />
+          <text class="t-title" x="532" y="350">…Constants</text>
+          <text class="t-sub" x="532" y="366">every NZC API</text>
+          <text class="t-sub" x="532" y="381">name + token</text>
+
+          <path class="d-line" d="M431,308 L431,330" marker-end="url(#a1)" />
+          <path class="d-line" d="M589,308 L589,330" marker-end="url(#a1)" />
+
+          <rect class="d-box" x="360" y="414" width="300" height="44" rx="6" />
+          <text class="t-title" x="376" y="433">BulkGapFillJobScheduler</text>
+          <text class="t-sub" x="376" y="449">
+            cron wrapper → calls launchRun with a stored request
+          </text>
+          <path
+            class="d-line"
+            d="M360,436 L340,436 L340,98 L360,98"
+            marker-end="url(#a1)"
+          />
+
+          <!-- Data column -->
+          <rect
+            class="d-box-info"
+            x="740"
+            y="46"
+            width="220"
+            height="76"
+            rx="6"
+          />
+          <text class="t-title" x="756" y="66">BulkGapFillJob__c</text>
+          <text class="t-title" x="756" y="84">BulkGapFillJobDetail__c</text>
+          <text class="t-sub" x="756" y="102">status · counts · error log</text>
+          <text class="t-sub" x="756" y="116">
+            one detail per footprint × fuel
+          </text>
+
+          <path
+            class="d-line-accent"
+            d="M660,84 L740,84"
+            marker-end="url(#a1x)"
+          />
+          <text class="t-edge t-accent" x="666" y="76">insert · poll</text>
+
+          <path
+            class="d-line-accent"
+            d="M660,246 L700,246 L700,110 L740,110"
+            marker-end="url(#a1x)"
+          />
+          <text class="t-edge t-accent" x="666" y="238">status + counts</text>
+
+          <rect class="d-box" x="740" y="176" width="220" height="112" rx="6" />
+          <text class="t-title" x="756" y="196">Net Zero Cloud · read</text>
+          <text class="t-mono" x="756" y="216">StnryAssetCrbnFtprnt</text>
+          <text class="t-mono" x="756" y="234">StnryAssetEnrgyUse</text>
+          <text class="t-mono" x="756" y="252">StnryAssetEnvrSrc</text>
+          <text class="t-mono" x="756" y="270">BldgEnrgyIntensityVal</text>
+          <text class="t-sub" x="756" y="284">all via dynamic SOQL</text>
+
+          <path class="d-line" d="M660,262 L740,232" marker-end="url(#a1)" />
+
+          <rect
+            class="d-box-accent"
+            x="740"
+            y="312"
+            width="220"
+            height="76"
+            rx="6"
+          />
+          <text class="t-title t-accent" x="756" y="332">
+            StnryAssetEnrgyUse
+          </text>
+          <text class="t-sub" x="756" y="350">inserted, partial success</text>
+          <text class="t-sub" x="756" y="366">
+            IsSystemGeneratedRecord = true
+          </text>
+          <text class="t-sub" x="756" y="382">
+            DataGapFillingMethodName stamped
+          </text>
+
+          <path
+            class="d-line-accent"
+            d="M660,290 L700,290 L700,340 L740,340"
+            marker-end="url(#a1x)"
+          />
+          <text class="t-edge t-accent" x="666" y="306">writes</text>
+
+          <rect
+            class="d-box-sunk"
+            x="740"
+            y="414"
+            width="220"
+            height="60"
+            rx="6"
+          />
+          <text class="t-title" x="756" y="434">AsyncApexJob</text>
+          <text class="t-sub" x="756" y="451">
+            platform row · JobItemsProcessed
+          </text>
+          <text class="t-sub" x="756" y="466">
+            read by getJobStatus for progress
+          </text>
+        </svg>
+      </div>
+      <figcaption>
+        <b>Figure 1 — Tier map.</b> The one arrow that defines the design is the
+        controller → batch hop: everything left of it is synchronous and
+        NZC-free, everything right of it is asynchronous and NZC-bound. The
+        scheduler re-enters through <code>launchRun</code> rather than
+        constructing a batch itself, so a cron run and a wizard run take exactly
+        the same path.
+      </figcaption>
+    </figure>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>File</th>
+            <th>Job</th>
+            <th>Knows about NZC?</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>BulkGapFillService.cls</code></td>
+            <td>
+              Merge ranges, detect gaps, flag date issues, resolve a daily rate.
+              Operates on <code>DateRange</code> /
+              <code>EnergyRecord</code> wrappers.
+            </td>
+            <td>No — testable in an org without Net Zero Cloud</td>
+          </tr>
+          <tr>
+            <td><code>BulkGapFillConstants.cls</code></td>
+            <td>
+              Every object name, field name, method token, status token, unit
+              conversion, plus <code>validateSchema()</code>.
+            </td>
+            <td>Names only</td>
+          </tr>
+          <tr>
+            <td><code>BulkGapFillBatch.cls</code></td>
+            <td>
+              Query scope, load supporting data, drive the service, build and
+              insert records, roll up counters.
+            </td>
+            <td>Yes — the only class that queries NZC</td>
+          </tr>
+          <tr>
+            <td><code>BulkGapFillRequest.cls</code></td>
+            <td>
+              Run configuration DTO with <code>validate()</code>,
+              <code>methodFor()</code>, and effective period bounds.
+            </td>
+            <td>No</td>
+          </tr>
+          <tr>
+            <td><code>BulkGapFillController.cls</code></td>
+            <td>
+              Six <code>@AuraEnabled</code> entry points. Owns job-row creation
+              and the launch/abort lifecycle.
+            </td>
+            <td>One <code>COUNT()</code> for the scope preview</td>
+          </tr>
+          <tr>
+            <td><code>BulkGapFillJobScheduler.cls</code></td>
+            <td>
+              <code>Schedulable</code> wrapper. Deep-copies the stored request
+              and resolves a null year to “last year”.
+            </td>
+            <td>No</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ================= 2. LIFECYCLE ================= -->
+  <section id="lifecycle">
+    <h2 data-idx="02">One run, end to end</h2>
+    <div class="prose">
+      <p>
+        The sequence below is the whole product in one picture. Note where the
+        thread of control breaks: <code>launchRun</code> returns a job id the
+        moment the batch is enqueued, and everything after that reaches the user
+        only because the Monitor polls. There is no push, no platform event —
+        the wizard advances a step because a poll came back with a terminal
+        <code>AsyncApexJob</code> status.
+      </p>
+    </div>
+
+    <figure>
+      <div class="fig-scroll">
+        <svg
+          viewBox="0 0 900 800"
+          role="img"
+          aria-label="Sequence diagram: the component fetches config options and a scope count, calls launchRun which validates, inserts a queued job row and enqueues the batch, then polls getJobStatus every three seconds while the batch runs start, execute and finish, and finally fetches detail rows."
+        >
+          <defs>
+            <marker
+              id="a2"
+              viewBox="0 0 10 10"
+              refX="9"
+              refY="5"
+              markerWidth="7"
+              markerHeight="7"
+              orient="auto-start-reverse"
+            >
+              <path d="M0,0 L10,5 L0,10 z" fill="currentColor" />
+            </marker>
+            <marker
+              id="a2x"
+              viewBox="0 0 10 10"
+              refX="9"
+              refY="5"
+              markerWidth="7"
+              markerHeight="7"
+              orient="auto-start-reverse"
+            >
+              <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)" />
+            </marker>
+          </defs>
+
+          <!-- actors -->
+          <rect
+            class="d-box-accent"
+            x="25"
+            y="14"
+            width="170"
+            height="42"
+            rx="6"
+          />
+          <text class="t-title t-accent" x="110" y="33" text-anchor="middle">
+            LWC wizard
+          </text>
+          <text class="t-sub" x="110" y="48" text-anchor="middle">browser</text>
+
+          <rect class="d-box" x="260" y="14" width="170" height="42" rx="6" />
+          <text class="t-title" x="345" y="33" text-anchor="middle">
+            Controller
+          </text>
+          <text class="t-sub" x="345" y="48" text-anchor="middle">
+            synchronous Apex
+          </text>
+
+          <rect class="d-box" x="495" y="14" width="170" height="42" rx="6" />
+          <text class="t-title" x="580" y="33" text-anchor="middle">Batch</text>
+          <text class="t-sub" x="580" y="48" text-anchor="middle">
+            async, stateful
+          </text>
+
+          <rect
+            class="d-box-info"
+            x="725"
+            y="14"
+            width="170"
+            height="42"
+            rx="6"
+          />
+          <text class="t-title" x="810" y="33" text-anchor="middle">
+            Records
+          </text>
+          <text class="t-sub" x="810" y="48" text-anchor="middle">
+            NZC + job objects
+          </text>
+
+          <line class="d-life" x1="110" y1="56" x2="110" y2="788" />
+          <line class="d-life" x1="345" y1="56" x2="345" y2="788" />
+          <line class="d-life" x1="580" y1="56" x2="580" y2="788" />
+          <line class="d-life" x1="810" y1="56" x2="810" y2="788" />
+
+          <!-- phase label: configure -->
+          <text class="t-band" x="25" y="88">Configure</text>
+
+          <line
+            class="d-line"
+            x1="110"
+            y1="110"
+            x2="345"
+            y2="110"
+            marker-end="url(#a2)"
+          />
+          <text class="t-edge" x="227" y="103" text-anchor="middle">
+            getConfigOptions()
+          </text>
+
+          <line
+            class="d-dash"
+            x1="345"
+            y1="146"
+            x2="110"
+            y2="146"
+            marker-end="url(#a2)"
+          />
+          <text class="t-edge" x="227" y="139" text-anchor="middle">
+            methods · years · asset types · schema problems
+          </text>
+
+          <line
+            class="d-line"
+            x1="110"
+            y1="190"
+            x2="345"
+            y2="190"
+            marker-end="url(#a2)"
+          />
+          <text class="t-edge" x="227" y="183" text-anchor="middle">
+            countFootprintsInScope()
+          </text>
+
+          <line
+            class="d-line"
+            x1="345"
+            y1="226"
+            x2="810"
+            y2="226"
+            marker-end="url(#a2)"
+          />
+          <text class="t-edge" x="577" y="219" text-anchor="middle">
+            SELECT COUNT() over footprints
+          </text>
+
+          <!-- phase label: launch -->
+          <text class="t-band" x="25" y="262">Launch</text>
+
+          <line
+            class="d-line-accent"
+            x1="110"
+            y1="284"
+            x2="345"
+            y2="284"
+            marker-end="url(#a2x)"
+          />
+          <text class="t-edge t-accent" x="227" y="277" text-anchor="middle">
+            launchRun(requestJson)
+          </text>
+
+          <path
+            class="d-line"
+            d="M345,302 L395,302 L395,324 L345,324"
+            marker-end="url(#a2)"
+          />
+          <text class="t-edge" x="403" y="317">request.validate()</text>
+
+          <line
+            class="d-line"
+            x1="345"
+            y1="352"
+            x2="810"
+            y2="352"
+            marker-end="url(#a2)"
+          />
+          <text class="t-edge" x="577" y="345" text-anchor="middle">
+            insert BulkGapFillJob__c — Queued
+          </text>
+
+          <line
+            class="d-line-accent"
+            x1="345"
+            y1="388"
+            x2="580"
+            y2="388"
+            marker-end="url(#a2x)"
+          />
+          <text class="t-edge t-accent" x="462" y="381" text-anchor="middle">
+            executeBatch(·, 50)
+          </text>
+
+          <line
+            class="d-dash"
+            x1="345"
+            y1="424"
+            x2="110"
+            y2="424"
+            marker-end="url(#a2)"
+          />
+          <text class="t-edge" x="227" y="417" text-anchor="middle">
+            jobId → wizard shows Monitor
+          </text>
+
+          <!-- phase label: run -->
+          <text class="t-band" x="25" y="460">Run</text>
+
+          <line
+            class="d-line"
+            x1="580"
+            y1="482"
+            x2="810"
+            y2="482"
+            marker-end="url(#a2)"
+          />
+          <text class="t-edge" x="695" y="475" text-anchor="middle">
+            start(): Job → Running + AsyncApexJobId
+          </text>
+
+          <line
+            class="d-line"
+            x1="580"
+            y1="518"
+            x2="810"
+            y2="518"
+            marker-end="url(#a2)"
+          />
+          <text class="t-edge" x="695" y="511" text-anchor="middle">
+            start(): QueryLocator over scope
+          </text>
+
+          <line
+            class="d-line-accent"
+            x1="580"
+            y1="566"
+            x2="810"
+            y2="566"
+            marker-end="url(#a2x)"
+          />
+          <text class="t-edge t-accent" x="695" y="545" text-anchor="middle">
+            execute() × N chunks
+          </text>
+          <text class="t-edge t-accent" x="695" y="559" text-anchor="middle">
+            insert energy use + detail rows
+          </text>
+
+          <!-- poll loop -->
+          <rect
+            class="d-group-accent"
+            x="18"
+            y="596"
+            width="878"
+            height="82"
+            rx="6"
+          />
+          <text class="t-band" x="30" y="612">
+            loop · every 3s until AsyncApexJob is terminal
+          </text>
+
+          <line
+            class="d-line"
+            x1="110"
+            y1="640"
+            x2="345"
+            y2="640"
+            marker-end="url(#a2)"
+          />
+          <text class="t-edge" x="227" y="633" text-anchor="middle">
+            getJobStatus(jobId)
+          </text>
+
+          <line
+            class="d-line"
+            x1="345"
+            y1="668"
+            x2="810"
+            y2="668"
+            marker-end="url(#a2)"
+          />
+          <text class="t-edge" x="577" y="661" text-anchor="middle">
+            Job row + AsyncApexJob progress
+          </text>
+
+          <line
+            class="d-line"
+            x1="580"
+            y1="710"
+            x2="810"
+            y2="710"
+            marker-end="url(#a2)"
+          />
+          <text class="t-edge" x="695" y="703" text-anchor="middle">
+            finish(): counts + terminal status
+          </text>
+
+          <!-- review -->
+          <text class="t-band" x="25" y="746">Review</text>
+
+          <line
+            class="d-line"
+            x1="110"
+            y1="768"
+            x2="345"
+            y2="768"
+            marker-end="url(#a2)"
+          />
+          <text class="t-edge" x="227" y="761" text-anchor="middle">
+            getJobDetails(jobId, status, page)
+          </text>
+
+          <line
+            class="d-line"
+            x1="345"
+            y1="788"
+            x2="810"
+            y2="788"
+            marker-end="url(#a2)"
+          />
+          <text class="t-edge" x="577" y="782" text-anchor="middle">
+            detail rows → grid + CSV
+          </text>
+        </svg>
+      </div>
+      <figcaption>
+        <b>Figure 2 — Control flow across the async boundary.</b> Solid arrows
+        are calls, dashed arrows are returns, green marks the path a live run
+        takes. The batch and the wizard never talk; they communicate only
+        through <code>BulkGapFillJob__c</code> and the platform’s
+        <code>AsyncApexJob</code> row.
+      </figcaption>
+    </figure>
+
+    <ol class="stages">
+      <li>
+        <span class="n">01</span>
+        <h3>Configure</h3>
+        <p>
+          <code>getConfigOptions</code> is <code>cacheable=true</code> and
+          returns the five fill methods, the last seven reporting years, live
+          <code>StationaryAssetType</code> picklist entries, and — importantly —
+          the output of <code>validateSchema()</code>. Any NZC name mismatch
+          surfaces on this first screen, before a run is possible.
+        </p>
+      </li>
+      <li>
+        <span class="n">02</span>
+        <h3>Preview scope</h3>
+        <p>
+          <code>countFootprintsInScope</code> runs a <code>COUNT()</code> using
+          the same WHERE-clause construction as the batch’s
+          <code>start()</code>. It is a scope sanity check, not a gap count —
+          nothing is analysed yet.
+        </p>
+      </li>
+      <li>
+        <span class="n">03</span>
+        <h3>Launch</h3>
+        <p>
+          <code>launchRun</code> validates, inserts the job row as
+          <span class="pill neutral">Queued</span>, enqueues the batch, then
+          stamps <code>AsyncApexJobId__c</code> and
+          <code>FootprintsInScope__c</code>. If anything throws after the
+          insert, the row is flipped to
+          <span class="pill bad">Failed</span> rather than left stuck at Queued.
+        </p>
+      </li>
+      <li>
+        <span class="n">04</span>
+        <h3>Batch runs</h3>
+        <p>
+          <code>start()</code> marks the job
+          <span class="pill info">Running</span> and returns a
+          <code>QueryLocator</code>. <code>execute()</code> fires once per chunk
+          of 50 footprints. Counters live on the batch instance —
+          <code>Database.Stateful</code> is what carries them across chunks into
+          <code>finish()</code>.
+        </p>
+      </li>
+      <li>
+        <span class="n">05</span>
+        <h3>Monitor</h3>
+        <p>
+          A <code>setTimeout</code> chain calls <code>getJobStatus</code> every
+          three seconds. Percent complete comes from
+          <code>AsyncApexJob.JobItemsProcessed / TotalJobItems</code>; the
+          footprint and record counts come from the job row the batch keeps
+          updating. When the platform status is terminal the component waits
+          1.2s and fires <code>runcomplete</code>.
+        </p>
+      </li>
+      <li>
+        <span class="n">06</span>
+        <h3>Review</h3>
+        <p>
+          <code>finish()</code> writes the roll-ups and the terminal status.
+          Results pages <code>BulkGapFillJobDetail__c</code> 200 rows at a time,
+          filterable by outcome, with a client-side CSV export of whatever rows
+          are currently loaded.
+        </p>
+      </li>
+    </ol>
+  </section>
+
+  <!-- ================= 3. CHUNK ================= -->
+  <section id="chunk">
+    <h2 data-idx="03">Inside one chunk</h2>
+    <div class="prose">
+      <p>
+        <code>execute()</code> is where the governor limits are actually spent,
+        and its structure is shaped entirely by them. Every query is hoisted
+        above the footprint loop; every insert is deferred below it. The loop
+        body itself does no DML and no SOQL.
+      </p>
+      <p>
+        The second thing to read for is the error containment — three nested
+        layers, each with a different blast radius.
+      </p>
+    </div>
+
+    <figure>
+      <div class="fig-scroll">
+        <svg
+          viewBox="0 0 900 664"
+          role="img"
+          aria-label="Flow inside execute: three bulk queries run first, then a per-footprint loop resolves the method, analyses the footprint, and for each fuel type either records no gaps, records a skip, or stages energy use records; afterwards two partial-success inserts run."
+        >
+          <defs>
+            <marker
+              id="a3"
+              viewBox="0 0 10 10"
+              refX="9"
+              refY="5"
+              markerWidth="7"
+              markerHeight="7"
+              orient="auto-start-reverse"
+            >
+              <path d="M0,0 L10,5 L0,10 z" fill="currentColor" />
+            </marker>
+          </defs>
+
+          <!-- outer try -->
+          <rect class="d-group" x="16" y="14" width="868" height="636" rx="8" />
+          <text class="t-band" x="30" y="32">
+            try — chunk scope · one catch logs once, errorCount += scope.size()
+          </text>
+
+          <text class="t-mono" x="30" y="54">
+            execute(BatchableContext, List&lt;SObject&gt; scope) — up to 50
+            footprints
+          </text>
+
+          <rect class="d-box" x="32" y="66" width="270" height="56" rx="6" />
+          <text class="t-title" x="46" y="86">loadEnergyRecords()</text>
+          <text class="t-sub" x="46" y="103">current energy use, keyed</text>
+          <text class="t-sub" x="46" y="117">by footprint id</text>
+
+          <rect class="d-box" x="316" y="66" width="270" height="56" rx="6" />
+          <text class="t-title" x="330" y="86">loadPriorYearRecords()</text>
+          <text class="t-sub" x="330" y="103">
+            prior-year footprints → their
+          </text>
+          <text class="t-sub" x="330" y="117">
+            energy use, keyed to this year
+          </text>
+
+          <rect class="d-box" x="600" y="66" width="268" height="56" rx="6" />
+          <text class="t-title" x="614" y="86">loadBenchmarks()</text>
+          <text class="t-sub" x="614" y="103">BldgEnrgyIntensityVal →</text>
+          <text class="t-sub" x="614" y="117">kWh/m² by benchmark × fuel</text>
+
+          <text class="t-edge t-accent" x="32" y="140">
+            4 SOQL per chunk, all above the loop · maps are the only thing the
+            loop reads
+          </text>
+
+          <!-- per footprint -->
+          <rect
+            class="d-group"
+            x="32"
+            y="152"
+            width="836"
+            height="404"
+            rx="8"
+          />
+          <text class="t-band" x="46" y="170">
+            for each footprint — try/catch → one Error detail row, loop
+            continues
+          </text>
+
+          <rect class="d-box" x="52" y="180" width="796" height="34" rx="5" />
+          <text class="t-mono" x="66" y="202">
+            method = request.methodFor(footprintId) — per-footprint override,
+            else the run default
+          </text>
+
+          <line
+            class="d-line"
+            x1="450"
+            y1="214"
+            x2="450"
+            y2="230"
+            marker-end="url(#a3)"
+          />
+
+          <rect
+            class="d-box-accent"
+            x="52"
+            y="230"
+            width="796"
+            height="40"
+            rx="5"
+          />
+          <text class="t-mono t-accent" x="66" y="248">
+            BulkGapFillService.analyzeFootprint(periodStart, periodEnd, records,
+            fuelFilter)
+          </text>
+          <text class="t-sub" x="66" y="264">
+            → one FuelGapSet per fuel type: gaps, date issues, consumption unit
+          </text>
+
+          <line
+            class="d-line"
+            x1="450"
+            y1="270"
+            x2="450"
+            y2="290"
+            marker-end="url(#a3)"
+          />
+
+          <!-- per fuel -->
+          <rect
+            class="d-group"
+            x="52"
+            y="290"
+            width="796"
+            height="250"
+            rx="8"
+          />
+          <text class="t-band" x="66" y="308">for each FuelGapSet</text>
+
+          <rect
+            class="d-box-sunk"
+            x="72"
+            y="318"
+            width="360"
+            height="36"
+            rx="5"
+          />
+          <text class="t-mono" x="86" y="341">gapSet.gaps.isEmpty()?</text>
+
+          <line
+            class="d-line"
+            x1="432"
+            y1="336"
+            x2="472"
+            y2="336"
+            marker-end="url(#a3)"
+          />
+          <text class="t-edge" x="452" y="329" text-anchor="middle">yes</text>
+
+          <rect class="d-box" x="472" y="318" width="356" height="36" rx="5" />
+          <text class="t-mono" x="486" y="341">
+            detail:
+            <tspan class="t-accent">No Gaps</tspan>
+            · nothing written
+          </text>
+
+          <line
+            class="d-line"
+            x1="252"
+            y1="354"
+            x2="252"
+            y2="374"
+            marker-end="url(#a3)"
+          />
+          <text class="t-edge" x="260" y="369">no</text>
+
+          <rect
+            class="d-box-sunk"
+            x="72"
+            y="374"
+            width="360"
+            height="46"
+            rx="5"
+          />
+          <text class="t-mono" x="86" y="393">
+            resolveDailyRate(FillContext)
+          </text>
+          <text class="t-sub" x="86" y="410">
+            method-specific prerequisites checked here
+          </text>
+
+          <line
+            class="d-line"
+            x1="432"
+            y1="397"
+            x2="472"
+            y2="397"
+            marker-end="url(#a3)"
+          />
+          <text class="t-edge t-warn" x="452" y="390" text-anchor="middle">
+            throws
+          </text>
+
+          <rect
+            class="d-box-warn"
+            x="472"
+            y="374"
+            width="356"
+            height="46"
+            rx="5"
+          />
+          <text class="t-mono" x="486" y="393">
+            detail:
+            <tspan class="t-warn">Skipped</tspan>
+            + reason in ErrorMessage__c
+          </text>
+          <text class="t-sub" x="486" y="410">
+            FillNotViableException — no estimate, no fallback
+          </text>
+
+          <line
+            class="d-line"
+            x1="252"
+            y1="420"
+            x2="252"
+            y2="440"
+            marker-end="url(#a3)"
+          />
+
+          <rect
+            class="d-box-sunk"
+            x="72"
+            y="440"
+            width="360"
+            height="46"
+            rx="5"
+          />
+          <text class="t-mono" x="86" y="459">
+            valueForGap(rate, gap) per gap
+          </text>
+          <text class="t-sub" x="86" y="476">rate × inclusive day count</text>
+
+          <line
+            class="d-line"
+            x1="432"
+            y1="463"
+            x2="472"
+            y2="463"
+            marker-end="url(#a3)"
+          />
+
+          <rect
+            class="d-box-accent"
+            x="472"
+            y="440"
+            width="356"
+            height="46"
+            rx="5"
+          />
+          <text class="t-mono t-accent" x="486" y="459">
+            stage StnryAssetEnrgyUse in memory
+          </text>
+          <text class="t-sub" x="486" y="476">
+            skipped entirely when isDryRun
+          </text>
+
+          <line
+            class="d-line"
+            x1="252"
+            y1="486"
+            x2="252"
+            y2="502"
+            marker-end="url(#a3)"
+          />
+          <line
+            class="d-line"
+            x1="650"
+            y1="486"
+            x2="650"
+            y2="502"
+            marker-end="url(#a3)"
+          />
+
+          <rect class="d-box" x="72" y="502" width="756" height="32" rx="5" />
+          <text class="t-mono" x="86" y="523">
+            detail:
+            <tspan class="t-accent">Filled</tspan>
+            (live) or
+            <tspan class="t-accent">Preview</tspan>
+            (dry run) — gaps, gap days, energy filled, unit
+          </text>
+
+          <!-- after loop -->
+          <rect
+            class="d-box-accent"
+            x="32"
+            y="572"
+            width="410"
+            height="62"
+            rx="6"
+          />
+          <text class="t-title t-accent" x="46" y="592">
+            Database.insert(energyUse, false)
+          </text>
+          <text class="t-sub" x="46" y="609">
+            every staged record in the chunk, one call
+          </text>
+          <text class="t-sub" x="46" y="624">
+            success → recordsCreated · failure → errorLog
+          </text>
+
+          <rect
+            class="d-box-info"
+            x="458"
+            y="572"
+            width="410"
+            height="62"
+            rx="6"
+          />
+          <text class="t-title" x="472" y="592">
+            Database.insert(details, false)
+          </text>
+          <text class="t-sub" x="472" y="609">
+            outside the outer try — detail rows are written
+          </text>
+          <text class="t-sub" x="472" y="624">
+            even when the chunk itself blew up
+          </text>
+
+          <line
+            class="d-line"
+            x1="237"
+            y1="556"
+            x2="237"
+            y2="572"
+            marker-end="url(#a3)"
+          />
+          <line
+            class="d-line"
+            x1="663"
+            y1="556"
+            x2="663"
+            y2="572"
+            marker-end="url(#a3)"
+          />
+        </svg>
+      </div>
+      <figcaption>
+        <b>Figure 3 — One <code>execute()</code> invocation.</b> Dashed frames
+        are try scopes. The innermost failure (a method’s prerequisites missing)
+        costs one fuel type; the middle one (an unexpected exception per
+        footprint) costs one asset; the outer one (a bad query or missing field)
+        costs the chunk. The detail insert deliberately sits outside all of
+        them.
+      </figcaption>
+    </figure>
+
+    <div class="note">
+      <span class="label">Why dynamic SOQL everywhere</span>
+      <p>
+        NZC object and field API names vary by org edition and release, so every
+        NZC query is built as a string from <code>BulkGapFillConstants</code>. A
+        wrong name becomes a runtime error captured on the job record instead of
+        a deploy failure that blocks the package. The cost is that a green
+        deploy proves nothing about those names — which is exactly what
+        <code>validateSchema()</code> exists to cover, and why its output is
+        surfaced on the Configure screen.
+      </p>
+    </div>
+  </section>
+
+  <!-- ================= 4. GAPS ================= -->
+  <section id="gaps">
+    <h2 data-idx="04">How gaps are found</h2>
+    <div class="prose">
+      <p>
+        Gap detection is pure interval arithmetic, and it happens per fuel type
+        — an electricity bill covering March does nothing for a natural-gas gap
+        in March. For each fuel type the service clips existing records to the
+        reporting period, merges them into a minimal covering set, then walks a
+        cursor from the first day of the period and emits whatever the cursor
+        skips over.
+      </p>
+    </div>
+
+    <figure>
+      <div class="fig-scroll">
+        <svg
+          viewBox="0 0 960 330"
+          role="img"
+          aria-label="Timeline over one reporting year showing four existing energy use records, the merged coverage they collapse into, and the two resulting gaps in July to August and November to December."
+        >
+          <defs>
+            <marker
+              id="a4"
+              viewBox="0 0 10 10"
+              refX="9"
+              refY="5"
+              markerWidth="6"
+              markerHeight="6"
+              orient="auto-start-reverse"
+            >
+              <path d="M0,0 L10,5 L0,10 z" fill="currentColor" />
+            </marker>
+          </defs>
+
+          <!-- axis -->
+          <line class="d-line" x1="80" y1="292" x2="920" y2="292" />
+          <g class="t-edge" text-anchor="middle">
+            <text x="115" y="310">Jan</text>
+            <text x="183" y="310">Feb</text>
+            <text x="251" y="310">Mar</text>
+            <text x="321" y="310">Apr</text>
+            <text x="391" y="310">May</text>
+            <text x="462" y="310">Jun</text>
+            <text x="532" y="310">Jul</text>
+            <text x="603" y="310">Aug</text>
+            <text x="673" y="310">Sep</text>
+            <text x="744" y="310">Oct</text>
+            <text x="814" y="310">Nov</text>
+            <text x="884" y="310">Dec</text>
+          </g>
+          <g class="d-life">
+            <line x1="80" y1="40" x2="80" y2="292" />
+            <line x1="151" y1="40" x2="151" y2="292" />
+            <line x1="216" y1="40" x2="216" y2="292" />
+            <line x1="287" y1="40" x2="287" y2="292" />
+            <line x1="356" y1="40" x2="356" y2="292" />
+            <line x1="428" y1="40" x2="428" y2="292" />
+            <line x1="497" y1="40" x2="497" y2="292" />
+            <line x1="568" y1="40" x2="568" y2="292" />
+            <line x1="639" y1="40" x2="639" y2="292" />
+            <line x1="708" y1="40" x2="708" y2="292" />
+            <line x1="780" y1="40" x2="780" y2="292" />
+            <line x1="849" y1="40" x2="849" y2="292" />
+            <line x1="920" y1="40" x2="920" y2="292" />
+          </g>
+
+          <!-- row 1 -->
+          <text class="t-band" x="0" y="46">Records</text>
+          <rect
+            class="d-box-info"
+            x="80"
+            y="56"
+            width="207"
+            height="20"
+            rx="3"
+          />
+          <text class="t-edge" x="90" y="70">Jan 1 – Mar 31</text>
+          <rect
+            class="d-box-info"
+            x="287"
+            y="56"
+            width="210"
+            height="20"
+            rx="3"
+          />
+          <text class="t-edge" x="297" y="70">Apr 1 – Jun 30</text>
+          <rect
+            class="d-box-info"
+            x="639"
+            y="56"
+            width="69"
+            height="20"
+            rx="3"
+          />
+          <rect
+            class="d-box-info"
+            x="672"
+            y="82"
+            width="108"
+            height="20"
+            rx="3"
+          />
+          <text class="t-edge" x="682" y="96">Sep 15 – Oct 31</text>
+          <text class="t-edge" x="600" y="70" text-anchor="end">
+            Sep 1 – Sep 30
+          </text>
+          <line
+            class="d-line"
+            x1="604"
+            y1="66"
+            x2="635"
+            y2="66"
+            marker-end="url(#a4)"
+          />
+
+          <text class="t-edge t-warn" x="920" y="70" text-anchor="end">
+            overlap → DateIssue, still merged
+          </text>
+          <text class="t-edge t-accent" x="297" y="46">
+            touching, not overlapping — Mar 31 → Apr 1
+          </text>
+
+          <!-- row 2 -->
+          <text class="t-band" x="0" y="150">Merged</text>
+          <rect
+            class="d-box-accent"
+            x="80"
+            y="160"
+            width="417"
+            height="20"
+            rx="3"
+          />
+          <text class="t-edge" x="90" y="174">Jan 1 – Jun 30 · 181 days</text>
+          <rect
+            class="d-box-accent"
+            x="639"
+            y="160"
+            width="141"
+            height="20"
+            rx="3"
+          />
+          <text class="t-edge" x="649" y="174">Sep 1 – Oct 31</text>
+
+          <line
+            class="d-line"
+            x1="288"
+            y1="112"
+            x2="288"
+            y2="156"
+            marker-end="url(#a4)"
+          />
+          <line
+            class="d-line"
+            x1="709"
+            y1="112"
+            x2="709"
+            y2="156"
+            marker-end="url(#a4)"
+          />
+
+          <!-- row 3 -->
+          <text class="t-band" x="0" y="230">Gaps</text>
+          <rect
+            class="d-box-warn"
+            x="497"
+            y="240"
+            width="142"
+            height="20"
+            rx="3"
+          />
+          <text class="t-edge" x="507" y="254">Jul 1 – Aug 31 · 62 d</text>
+          <rect
+            class="d-box-warn"
+            x="780"
+            y="240"
+            width="140"
+            height="20"
+            rx="3"
+          />
+          <text class="t-edge" x="790" y="254">Nov 1 – Dec 31 · 61 d</text>
+
+          <path
+            class="d-line"
+            d="M497,186 L497,214 L560,214 L560,236"
+            marker-end="url(#a4)"
+          />
+          <path
+            class="d-line"
+            d="M780,186 L780,214 L845,214 L845,236"
+            marker-end="url(#a4)"
+          />
+          <text class="t-edge" x="568" y="210">cursor skips</text>
+          <text class="t-edge" x="853" y="210">cursor skips</text>
+        </svg>
+      </div>
+      <figcaption>
+        <b>Figure 4 — <code>detectGaps</code> on one fuel type.</b> Ranges are
+        inclusive at both ends, and merging treats consecutive days as adjacent
+        — a bill ending Mar 31 followed by one starting Apr 1 leaves no phantom
+        one-day gap. An overlap is reported as a <code>DateIssue</code> on the
+        detail row but does not stop the merge.
+      </figcaption>
+    </figure>
+
+    <div class="prose">
+      <h3>The four steps, in code order</h3>
+      <p>
+        <code>analyzeFootprint</code> groups records by <code>FuelType</code>,
+        then per group: <code>detectDateIssues</code> flags missing, inverted,
+        and overlapping periods; usable records become <code>DateRange</code>s;
+        <code>detectGaps</code> clips them to the period, calls
+        <code>mergeRanges</code>, and walks the cursor; the first non-blank
+        <code>FuelConsumptionUnit</code> found is carried forward so generated
+        records inherit the unit their siblings already use.
+      </p>
+    </div>
+
+    <div class="note warn">
+      <span class="label"
+        >Two behaviours worth knowing before you trust a run</span
+      >
+      <p>
+        <strong
+          >A fuel type with zero records is invisible unless you name
+          it.</strong
+        >
+        Grouping starts from the records that exist, so a footprint with no gas
+        bills at all produces no gas <code>FuelGapSet</code> — the whole year
+        goes undetected. Listing the fuel type explicitly in the request forces
+        an empty group into the map, which then reads as a whole-period gap.
+      </p>
+      <p>
+        <strong>Coverage does not distinguish estimates from actuals.</strong>
+        <code>loadEnergyRecords</code> selects every energy use row on the
+        footprint, including ones a previous run generated. So a repeat run over
+        the same period generally finds the gaps already closed and writes
+        <span class="pill ok">No Gaps</span> rows. That idempotence is
+        incidental, not a guard — the intended guard,
+        <code>skipAlreadyFilled</code>, is not wired up (see §7).
+      </p>
+    </div>
+  </section>
+
+  <!-- ================= 5. RATE ================= -->
+  <section id="rate">
+    <h2 data-idx="05">How a gap gets a number</h2>
+    <div class="prose">
+      <p>
+        Every method reduces to a single daily consumption rate, which is then
+        multiplied by the gap’s inclusive day count. The batch assembles a
+        <code>FillContext</code> per footprint × fuel type — only the fields the
+        chosen method needs get populated — and hands it to
+        <code>resolveDailyRate</code>.
+      </p>
+    </div>
+
+    <figure>
+      <div class="fig-scroll">
+        <svg
+          viewBox="0 0 960 476"
+          role="img"
+          aria-label="resolveDailyRate routes to five fill methods, each with its own formula and prerequisites; when a prerequisite is missing it throws FillNotViableException, which becomes a Skipped detail row rather than a substituted estimate."
+        >
+          <defs>
+            <marker
+              id="a5"
+              viewBox="0 0 10 10"
+              refX="9"
+              refY="5"
+              markerWidth="7"
+              markerHeight="7"
+              orient="auto-start-reverse"
+            >
+              <path d="M0,0 L10,5 L0,10 z" fill="currentColor" />
+            </marker>
+            <marker
+              id="a5w"
+              viewBox="0 0 10 10"
+              refX="9"
+              refY="5"
+              markerWidth="7"
+              markerHeight="7"
+              orient="auto-start-reverse"
+            >
+              <path d="M0,0 L10,5 L0,10 z" fill="var(--warn)" />
+            </marker>
+          </defs>
+
+          <rect
+            class="d-box-accent"
+            x="16"
+            y="176"
+            width="180"
+            height="68"
+            rx="6"
+          />
+          <text class="t-title t-accent" x="30" y="198">resolveDailyRate</text>
+          <text class="t-sub" x="30" y="215">FillContext: method,</text>
+          <text class="t-sub" x="30" y="230">fuel type, benchmark,</text>
+          <text class="t-sub" x="30" y="240">area, totals</text>
+
+          <!-- fan out -->
+          <path
+            class="d-line"
+            d="M196,210 L232,210 L232,44 L268,44"
+            marker-end="url(#a5)"
+          />
+          <path
+            class="d-line"
+            d="M196,210 L232,210 L232,120 L268,120"
+            marker-end="url(#a5)"
+          />
+          <path
+            class="d-line"
+            d="M196,210 L232,210 L268,210"
+            marker-end="url(#a5)"
+          />
+          <path
+            class="d-line"
+            d="M196,210 L232,210 L232,286 L268,286"
+            marker-end="url(#a5)"
+          />
+          <path
+            class="d-line"
+            d="M196,210 L232,210 L232,362 L268,362"
+            marker-end="url(#a5)"
+          />
+
+          <rect class="d-group" x="258" y="6" width="412" height="394" rx="8" />
+
+          <g>
+            <rect class="d-box" x="268" y="16" width="392" height="56" rx="6" />
+            <text class="t-title" x="282" y="36">Regional BEI</text>
+            <text class="t-mono" x="282" y="53">
+              (beiValue × areaSqM) / 365
+            </text>
+            <text class="t-sub" x="282" y="67">
+              needs RegionalBldgEnergyIntensityId + a value row for the fuel
+            </text>
+          </g>
+          <g>
+            <rect class="d-box" x="268" y="92" width="392" height="56" rx="6" />
+            <text class="t-title" x="282" y="112">Building BEI</text>
+            <text class="t-mono" x="282" y="129">
+              (beiValue × areaSqM) / 365
+            </text>
+            <text class="t-sub" x="282" y="143">
+              needs BuildingEnergyIntensityId + a value row for the fuel
+            </text>
+          </g>
+          <g>
+            <rect
+              class="d-box"
+              x="268"
+              y="182"
+              width="392"
+              height="56"
+              rx="6"
+            />
+            <text class="t-title" x="282" y="202">
+              Previous Year Daily Average
+            </text>
+            <text class="t-mono" x="282" y="219">priorYearTotal / 365</text>
+            <text class="t-sub" x="282" y="233">
+              needs prior-year consumption &gt; 0 for the same fuel
+            </text>
+          </g>
+          <g>
+            <rect
+              class="d-box"
+              x="268"
+              y="258"
+              width="392"
+              height="56"
+              rx="6"
+            />
+            <text class="t-title" x="282" y="278">
+              Current Year Daily Average
+            </text>
+            <text class="t-mono" x="282" y="295">
+              currentYearTotal / daysWithData
+            </text>
+            <text class="t-sub" x="282" y="309">
+              needs distinct covered days &gt; 0 and consumption &gt; 0
+            </text>
+          </g>
+          <g>
+            <rect
+              class="d-box"
+              x="268"
+              y="334"
+              width="392"
+              height="56"
+              rx="6"
+            />
+            <text class="t-title" x="282" y="354">Manual</text>
+            <text class="t-mono" x="282" y="371">manualDailyRate</text>
+            <text class="t-sub" x="282" y="385">
+              needs a non-null rate on the request — one rate for the run
+            </text>
+          </g>
+
+          <!-- failure rail: stubs off each method, collected at x=700 -->
+          <g
+            fill="none"
+            stroke="var(--warn)"
+            stroke-width="1.1"
+            stroke-dasharray="4 3"
+          >
+            <path d="M660,44 L700,44" />
+            <path d="M660,120 L700,120" />
+            <path d="M660,210 L700,210" />
+            <path d="M660,286 L700,286" />
+            <path d="M660,362 L700,362" />
+            <path d="M700,44 L700,362" />
+          </g>
+          <path
+            d="M700,208 L734,208"
+            fill="none"
+            stroke="var(--warn)"
+            stroke-width="1.4"
+            marker-end="url(#a5w)"
+          />
+          <text class="t-edge t-warn" x="700" y="182" text-anchor="middle">
+            prerequisite
+          </text>
+          <text class="t-edge t-warn" x="700" y="196" text-anchor="middle">
+            missing
+          </text>
+
+          <rect
+            class="d-box-warn"
+            x="740"
+            y="152"
+            width="204"
+            height="112"
+            rx="6"
+          />
+          <text class="t-title t-warn" x="754" y="176">
+            FillNotViableException
+          </text>
+          <text class="t-sub" x="754" y="196">detail Status = Skipped</text>
+          <text class="t-sub" x="754" y="212">reason on ErrorMessage__c</text>
+          <text class="t-sub" x="754" y="234">no estimate written,</text>
+          <text class="t-sub" x="754" y="250">no fallback method tried</text>
+
+          <!-- success falls out of the group, downward -->
+          <line
+            class="d-line-accent"
+            x1="464"
+            y1="400"
+            x2="464"
+            y2="416"
+            marker-end="url(#a5)"
+          />
+          <text class="t-edge t-accent" x="474" y="412">
+            whichever branch returned a rate
+          </text>
+          <rect
+            class="d-box-accent"
+            x="268"
+            y="416"
+            width="392"
+            height="52"
+            rx="6"
+          />
+          <text class="t-title t-accent" x="282" y="436">rate resolved</text>
+          <text class="t-mono" x="282" y="454">
+            valueForGap(rate, gap) = rate × gap.days · one record per gap
+          </text>
+        </svg>
+      </div>
+      <figcaption>
+        <b>Figure 5 — Method routing and the skip path.</b> The refusal to
+        substitute is the design decision here: a benchmark that carries no
+        value for the fuel type being filled produces a
+        <span class="pill warn">Skipped</span> row with a reason, never another
+        fuel type’s figure dressed up as an estimate.
+      </figcaption>
+    </figure>
+
+    <div class="prose">
+      <h3>Unit normalisation happens on read</h3>
+      <p>
+        Two conversions in <code>BulkGapFillConstants</code> keep the arithmetic
+        in one unit system. <code>toSquareMetres</code> converts an asset’s
+        <code>OccupiedFloorArea</code> when its unit reads as imperial and
+        otherwise passes it through; <code>toKwhPerSquareMetre</code> prefers a
+        benchmark’s <code>AnnualIntensityValueInKwhM2</code> and falls back to
+        converting the sqft column, so a benchmark with only the imperial figure
+        populated stays usable. Both BEI lookups resolve against the same
+        <code>BldgEnrgyIntensity</code> object, so one query over its child
+        value records serves both methods.
+      </p>
+    </div>
+  </section>
+
+  <!-- ================= 6. WRITES ================= -->
+  <section id="writes">
+    <h2 data-idx="06">What gets written</h2>
+    <div class="prose">
+      <p>Three write targets, each with a different owner and lifetime.</p>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Target</th>
+            <th>Written by</th>
+            <th>Contents</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>StnryAssetEnrgyUse</code></td>
+            <td>
+              Batch <code>execute()</code>, one bulk partial-success insert per
+              chunk
+            </td>
+            <td>
+              Parent footprint, fuel type, gap start/end, computed
+              <code>FuelConsumption</code>, unit inherited from a sibling
+              record, <code>IsSystemGeneratedRecord = true</code>, and
+              <code>DataGapFillingMethodName</code> set to the method token.
+              Never written on a dry run.
+            </td>
+          </tr>
+          <tr>
+            <td><code>BulkGapFillJob__c</code></td>
+            <td>
+              Controller at launch; batch in <code>start()</code> and
+              <code>finish()</code>
+            </td>
+            <td>
+              One row per run. Carries the serialized request on
+              <code>FilterCriteria__c</code> so any run can be reproduced, the
+              <code>AsyncApexJobId__c</code> the monitor polls, roll-up
+              counters, and an error log truncated at 100k characters.
+            </td>
+          </tr>
+          <tr>
+            <td><code>BulkGapFillJobDetail__c</code></td>
+            <td>Batch <code>execute()</code>, one insert per chunk</td>
+            <td>
+              One row per footprint <em>per fuel type</em> — the audit trail,
+              and the only place a skip reason survives. Written even when the
+              chunk itself fails.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <figure>
+      <div class="fig-scroll">
+        <svg
+          viewBox="0 0 900 266"
+          role="img"
+          aria-label="Job status state machine: Queued moves to Running via start, or to Failed if launch throws; Running moves to Completed or Completed With Errors via finish depending on the error count, or to Aborted via abortRun."
+        >
+          <defs>
+            <marker
+              id="a6"
+              viewBox="0 0 10 10"
+              refX="9"
+              refY="5"
+              markerWidth="7"
+              markerHeight="7"
+              orient="auto-start-reverse"
+            >
+              <path d="M0,0 L10,5 L0,10 z" fill="currentColor" />
+            </marker>
+          </defs>
+
+          <rect
+            class="d-box-sunk"
+            x="30"
+            y="90"
+            width="130"
+            height="42"
+            rx="21"
+          />
+          <text class="t-title" x="95" y="116" text-anchor="middle">
+            Queued
+          </text>
+
+          <line
+            class="d-line"
+            x1="160"
+            y1="111"
+            x2="228"
+            y2="111"
+            marker-end="url(#a6)"
+          />
+          <text class="t-edge" x="194" y="103" text-anchor="middle">
+            start()
+          </text>
+
+          <rect
+            class="d-box-info"
+            x="228"
+            y="90"
+            width="130"
+            height="42"
+            rx="21"
+          />
+          <text class="t-title" x="293" y="116" text-anchor="middle">
+            Running
+          </text>
+
+          <path
+            class="d-line"
+            d="M358,104 L430,104 L430,58 L500,58"
+            marker-end="url(#a6)"
+          />
+          <text class="t-edge" x="438" y="50">finish() · errorCount = 0</text>
+
+          <path
+            class="d-line"
+            d="M358,118 L430,118 L430,132 L500,132"
+            marker-end="url(#a6)"
+          />
+          <text class="t-edge" x="438" y="150">
+            finish() · errorCount &gt; 0
+          </text>
+
+          <rect
+            class="d-box-accent"
+            x="500"
+            y="36"
+            width="250"
+            height="42"
+            rx="21"
+          />
+          <text class="t-title t-accent" x="625" y="62" text-anchor="middle">
+            Completed
+          </text>
+
+          <rect
+            class="d-box-warn"
+            x="500"
+            y="110"
+            width="250"
+            height="42"
+            rx="21"
+          />
+          <text class="t-title t-warn" x="625" y="136" text-anchor="middle">
+            Completed With Errors
+          </text>
+
+          <path
+            class="d-line"
+            d="M293,132 L293,196 L500,196"
+            marker-end="url(#a6)"
+          />
+          <text class="t-edge" x="310" y="190">
+            abortRun() — inserts so far are not rolled back
+          </text>
+
+          <rect class="d-box" x="500" y="175" width="250" height="42" rx="21" />
+          <text class="t-title" x="625" y="201" text-anchor="middle">
+            Aborted
+          </text>
+
+          <path
+            class="d-line"
+            d="M95,132 L95,196 L160,196"
+            marker-end="url(#a6)"
+          />
+          <text class="t-edge" x="30" y="240">
+            launchRun catch — the row never
+          </text>
+          <text class="t-edge" x="30" y="252">gets stuck at Queued</text>
+
+          <rect
+            class="d-box-danger"
+            x="160"
+            y="175"
+            width="130"
+            height="42"
+            rx="21"
+          />
+          <text class="t-title t-danger" x="225" y="201" text-anchor="middle">
+            Failed
+          </text>
+        </svg>
+      </div>
+      <figcaption>
+        <b>Figure 6 — <code>BulkGapFillJob__c.Status__c</code>.</b> A run that
+        hit any error still finishes as <em>Completed With Errors</em>, not
+        <em>Failed</em> — the footprints that succeeded were genuinely filled,
+        and the per-asset detail rows say which.
+      </figcaption>
+    </figure>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Detail status</th>
+            <th>Set when</th>
+            <th>Energy use written?</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="pill ok">Filled</span></td>
+            <td>Gaps found, rate resolved, live run</td>
+            <td class="num">Yes — one per gap</td>
+          </tr>
+          <tr>
+            <td><span class="pill info">Preview</span></td>
+            <td>Same as Filled, but <code>isDryRun</code> was set</td>
+            <td class="num">No</td>
+          </tr>
+          <tr>
+            <td><span class="pill neutral">No Gaps</span></td>
+            <td>The fuel type’s coverage already spans the whole period</td>
+            <td class="num">No</td>
+          </tr>
+          <tr>
+            <td><span class="pill warn">Skipped</span></td>
+            <td>
+              <code>FillNotViableException</code> — the method’s prerequisites
+              are missing
+            </td>
+            <td class="num">No — reason recorded</td>
+          </tr>
+          <tr>
+            <td><span class="pill bad">Error</span></td>
+            <td>Unexpected exception while processing that footprint</td>
+            <td class="num">No</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ================= 7. CONFIG ================= -->
+  <section id="config">
+    <h2 data-idx="07">Config → behaviour</h2>
+    <div class="prose">
+      <p>
+        <code>BulkGapFillRequest</code> is the contract between the wizard and
+        the batch: the Configure component builds it as a plain object,
+        <code>JSON.stringify</code>s it, and Apex deserializes it straight into
+        the class. Because it round-trips as JSON and is stored on the job row,
+        the request is also the run’s reproducibility record.
+      </p>
+      <p>
+        The table below is the honest version — including the three fields the
+        UI collects that nothing downstream reads.
+      </p>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Field</th>
+            <th>Consumed by</th>
+            <th>Effect</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>reportingYear</code></td>
+            <td>Scope query, prior-year lookup, period bounds</td>
+            <td>
+              Bound as <strong>text</strong> via
+              <code>reportingYearBind()</code> — <code>ReportingYear</code> is a
+              string column on the NZC objects, so an Integer bind throws at
+              runtime.
+            </td>
+          </tr>
+          <tr>
+            <td><code>periodStart</code> / <code>periodEnd</code></td>
+            <td><code>effectivePeriodStart/End()</code></td>
+            <td>
+              Null means Jan 1 – Dec 31 of the reporting year. Set both for a
+              fiscal year.
+            </td>
+          </tr>
+          <tr>
+            <td><code>defaultFillMethod</code></td>
+            <td><code>methodFor()</code> → <code>resolveDailyRate</code></td>
+            <td>
+              Required; validated against <code>ALL_METHODS</code> before
+              launch.
+            </td>
+          </tr>
+          <tr>
+            <td><code>manualDailyRate</code></td>
+            <td><code>FillContext</code></td>
+            <td>
+              One rate for the whole run, not per asset. Required and
+              non-negative when the method is Manual.
+            </td>
+          </tr>
+          <tr>
+            <td><code>carbonFootprintIds</code></td>
+            <td><code>buildFootprintQuery()</code></td>
+            <td>
+              Wins outright — when populated, year and asset filters are ignored
+              entirely.
+            </td>
+          </tr>
+          <tr>
+            <td><code>stationaryAssetIds</code>, <code>assetTypes</code></td>
+            <td><code>buildFootprintQuery()</code></td>
+            <td>
+              ANDed onto the year filter. Asset type traverses
+              <code>StnryAssetEnvrSrc.StationaryAssetType</code>.
+            </td>
+          </tr>
+          <tr>
+            <td><code>fuelTypes</code></td>
+            <td><code>analyzeFootprint()</code></td>
+            <td>
+              Empty means “every fuel type that has records”. Naming one forces
+              a gap set even with zero records. Entered in the UI as free-text,
+              comma-separated — no picklist, so a typo silently yields a
+              whole-year gap.
+            </td>
+          </tr>
+          <tr>
+            <td><code>isDryRun</code></td>
+            <td><code>execute()</code></td>
+            <td>
+              Full detection and full audit trail, zero energy use inserts.
+              Detail status becomes <em>Preview</em>.
+            </td>
+          </tr>
+          <tr>
+            <td><code>batchSize</code></td>
+            <td><code>launchRun</code></td>
+            <td>
+              Chunk size for <code>Database.executeBatch</code>, default 50,
+              validated 1–2000.
+            </td>
+          </tr>
+          <tr>
+            <td><code>methodOverrides</code></td>
+            <td><code>methodFor()</code> — Apex side works</td>
+            <td>
+              <strong>Not reachable from the UI.</strong> The Configure
+              component always sends an empty map. Per-footprint methods are
+              available only to an Apex or scheduled caller.
+            </td>
+          </tr>
+          <tr>
+            <td><code>associateOrphans</code></td>
+            <td>Nothing</td>
+            <td>
+              <strong>Not implemented.</strong> Surfaced as a checkbox and
+              carried on the request, but no matching logic runs and
+              <code>RecordsAssociated__c</code> stays at zero — including the
+              tile the Monitor screen shows for it.
+            </td>
+          </tr>
+          <tr>
+            <td><code>skipAlreadyFilled</code></td>
+            <td>Nothing</td>
+            <td>
+              <strong>Not enforced.</strong> Defaults to true but
+              <code>execute()</code> never reads it, so previously filled
+              footprints are re-scanned rather than skipped.
+              <code>EnergyRecord.isGapFilled</code> is already populated from
+              <code>IsSystemGeneratedRecord</code> for whenever it is wired up.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note warn">
+      <span class="label">Other live limitations</span>
+      <p>
+        <code>BulkGapFillBatch</code> has no test class — exercising it needs
+        NZC data — so coverage sits below the 75% deploy threshold; the LWC Jest
+        suite is empty, so <code>npm test</code> exits 1; aborting a run stops
+        later chunks but does not roll back earlier inserts; and CSV export
+        covers only the detail rows currently loaded in the grid, which pages at
+        200.
+      </p>
+      <p>
+        The date convention is also a decision, not a given: this build treats
+        ranges as inclusive at both ends, where the native wizard’s published
+        formula uses <code>EndDate - StartDate</code>. Confirm which one your
+        org’s audit expects before trusting the totals.
+      </p>
+    </div>
+  </section>
+
+  <!-- ================= 8. RUNNING ================= -->
+  <section id="running">
+    <h2 data-idx="08">Running it</h2>
+    <div class="prose">
+      <p>
+        Deploy the source, assign <code>Bulk_Gap_Fill_Admin</code> — the
+        permission set carries field-level security for both custom objects, and
+        custom fields deploy with FLS off, so object access alone produces
+        “fields being inaccessible” the moment a run launches. Then, before the
+        first real run:
+      </p>
+    </div>
+
+    <ol class="stages">
+      <li>
+        <span class="n">01</span>
+        <h3>Validate the schema</h3>
+        <p>
+          Run <code>scripts/apex/validate-schema.apex</code>. Because the NZC
+          queries are dynamic, a clean deploy proves nothing about the API names
+          in <code>BulkGapFillConstants</code>. An empty result means the org is
+          ready; anything listed is a one-file fix. The same output also appears
+          on the Configure screen.
+        </p>
+      </li>
+      <li>
+        <span class="n">02</span>
+        <h3>Count the scope</h3>
+        <p>
+          Use the scope preview to confirm the year and filters select the
+          footprints you expect before committing to a run.
+        </p>
+      </li>
+      <li>
+        <span class="n">03</span>
+        <h3>Dry run first</h3>
+        <p>
+          A dry run performs full gap detection and writes the complete
+          per-asset audit trail without creating a single energy use record.
+          Read the
+          <em>Skipped</em> rows especially — a benchmark missing the fuel type
+          being filled fails quietly there, and across a large portfolio that is
+          easy to miss.
+        </p>
+      </li>
+      <li>
+        <span class="n">04</span>
+        <h3>Then run live</h3>
+        <p>
+          Same configuration with the dry-run box cleared. Generated records
+          carry
+          <code>IsSystemGeneratedRecord = true</code>, the same flag the native
+          process sets — so actuals-only reporting views should filter on it
+          being false, and records from either route are counted consistently.
+        </p>
+      </li>
+    </ol>
+  </section>
+</div>

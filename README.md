@@ -8,6 +8,11 @@ invocable action, or Flow action for automation. This project replicates that
 wizard's logic as Batch Apex and puts a portfolio-level LWC in front of it, so an
 entire estate can be gap filled in a single run.
 
+New to the codebase? [`PROCESS_MAP.html`](PROCESS_MAP.html) is a diagrammed
+walkthrough of how the pieces fit together — the tier boundaries, one run end to
+end, what happens inside a single batch chunk, the gap detection algorithm, and
+the fill method routing. Open it in a browser.
+
 ---
 
 ## What gap filling does
