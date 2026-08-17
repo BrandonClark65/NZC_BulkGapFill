@@ -185,16 +185,41 @@ private class BulkGapFillControllerTest {
 
   @IsTest
   static void recentJobsAreNewestFirst() {
-    insertJob();
-    BulkGapFillJob__c second = insertJob();
+    BulkGapFillJob__c older = insertJob();
+    BulkGapFillJob__c newer = insertJob();
+
+    // Everything inserted in one transaction shares a CreatedDate, so the dates
+    // have to be moved apart for this to be a test of ordering by date at all.
+    Test.setCreatedDate(older.Id, System.now().addDays(-2));
+    Test.setCreatedDate(newer.Id, System.now().addDays(-1));
 
     List<BulkGapFillJob__c> jobs = BulkGapFillController.getRecentJobs(10);
 
     Assert.areEqual(2, jobs.size());
     Assert.areEqual(
-      second.Id,
+      newer.Id,
       jobs[0].Id,
       'Most recently created job comes first'
+    );
+  }
+
+  @IsTest
+  static void recentJobsOrderIsStableWhenCreatedDatesTie() {
+    // Two runs launched in the same second, which is the common case when a
+    // scheduled job and a manual one land together. CreatedDate cannot separate
+    // them, so the query falls back to Id and the order stays put across
+    // refreshes rather than flipping.
+    BulkGapFillJob__c first = insertJob();
+    BulkGapFillJob__c second = insertJob();
+    Id higherId = first.Id > second.Id ? first.Id : second.Id;
+
+    List<BulkGapFillJob__c> jobs = BulkGapFillController.getRecentJobs(10);
+
+    Assert.areEqual(2, jobs.size());
+    Assert.areEqual(
+      higherId,
+      jobs[0].Id,
+      'A CreatedDate tie is broken by Id, descending'
     );
   }
 

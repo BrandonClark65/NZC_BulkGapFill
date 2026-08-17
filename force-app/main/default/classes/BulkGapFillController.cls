@@ -431,7 +431,9 @@ public with sharing class BulkGapFillController {
           CreatedBy.Name
         FROM BulkGapFillJob__c
         WITH USER_MODE
-        ORDER BY CreatedDate DESC
+        // Id breaks the tie: runs launched within the same second share a
+        // CreatedDate, and without it their order flips between refreshes.
+        ORDER BY CreatedDate DESC, Id DESC
         LIMIT :limitSize
       ];
     } catch (Exception e) {
