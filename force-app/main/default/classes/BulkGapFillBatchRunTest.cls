@@ -340,6 +340,63 @@ private class BulkGapFillBatchRunTest {
     );
   }
 
+  /**
+   * The custom benchmark reads a different lookup on the footprint than the
+   * regional one, chosen by a ternary in buildContext. Nothing else exercises
+   * that side of it, so a swap of the two lookups would go unnoticed.
+   */
+  @IsTest
+  static void buildingBenchmarkFillUsesTheCustomBeiLookup() {
+    if (!BulkGapFillTestData.isNetZeroCloudAvailable()) {
+      return;
+    }
+    SObject benchmark = BulkGapFillTestData.benchmark(
+      'BEI Builder Office',
+      false
+    );
+    BulkGapFillTestData.benchmarkValue(
+      benchmark.Id,
+      BulkGapFillTestData.FUEL_ELECTRICITY,
+      180
+    );
+
+    SObject asset = BulkGapFillTestData.asset('HQ');
+    SObject footprint = BulkGapFillTestData.footprint(asset.Id, YEAR);
+    footprint.put(BulkGapFillConstants.FIELD_BEI_LOOKUP, benchmark.Id);
+    update footprint;
+
+    BulkGapFillTestData.energyUse(
+      footprint.Id,
+      asset.Id,
+      BulkGapFillTestData.FUEL_ELECTRICITY,
+      JAN_1,
+      JUN_30,
+      181000
+    );
+
+    BulkGapFillRequest req = request(BulkGapFillConstants.METHOD_BUILDING_BEI);
+    BulkGapFillJob__c job = BulkGapFillTestData.job(req);
+
+    run(req, job.Id);
+
+    List<SObject> generated = BulkGapFillTestData.energyUseUnder(
+      footprint.Id,
+      true
+    );
+    Assert.isFalse(
+      generated.isEmpty(),
+      'The custom benchmark lookup must be read. Log: ' +
+      reload(job.Id).ErrorLog__c
+    );
+    Assert.areEqual(
+      BulkGapFillConstants.gapFillMethodPicklistValue(
+        BulkGapFillConstants.METHOD_BUILDING_BEI
+      ),
+      generated[0].get(BulkGapFillConstants.FIELD_ENERGY_USE_FILL_METHOD),
+      'BUILDING_BENCHMARK, distinct from the regional stamp'
+    );
+  }
+
   @IsTest
   static void benchmarkWithNoValueForTheFuelTypeIsSkipped() {
     if (!BulkGapFillTestData.isNetZeroCloudAvailable()) {
