@@ -36,41 +36,37 @@ public with sharing class BulkGapFillConstants {
   };
 
   /**
-   * Spellings tried when mapping an internal fill method token onto the
-   * `DataGapFillingMethodName` picklist.
+   * Maps each internal fill method token onto the `DataGapFillingMethodName`
+   * values that mean the same thing, most authoritative first.
    *
    * That field is a standard restricted picklist owned by Net Zero Cloud, so the
-   * values it accepts are Salesforce's and need not match the tokens above.
-   * Writing a token straight into it fails the insert with "bad value for
-   * restricted picklist field". The org's own active values are the authority —
-   * `gapFillMethodPicklistValue` describes the field at run time and matches on
-   * both value and label — and these aliases only widen that match for orgs whose
-   * wording differs. Add a spelling here rather than editing the tokens, which are
-   * also stored in `BulkGapFillJob__c.DefaultFillMethod__c` and would break
-   * existing job records.
+   * values it accepts are Salesforce's and do not match the tokens above — writing
+   * a token straight into it fails the insert with "bad value for restricted
+   * picklist field". The API value is listed first because it is stable: labels
+   * are translated for the running user's language and can be renamed in Setup,
+   * so matching one is a fallback rather than the plan.
+   *
+   * Add a spelling here rather than editing the tokens, which are also stored in
+   * `BulkGapFillJob__c.DefaultFillMethod__c` and would break existing job records.
    */
   private static final Map<String, List<String>> METHOD_PICKLIST_ALIASES = new Map<String, List<String>>{
     METHOD_REGIONAL_BEI => new List<String>{
-      'Regional Building Energy Intensity',
-      'Regional Building Energy Intensity Average',
-      'Regional Energy Intensity'
+      'REGIONAL_BENCHMARK',
+      'Regional Building Energy Intensity'
     },
     METHOD_BUILDING_BEI => new List<String>{
-      'Building Energy Intensity',
-      'Custom Building Energy Intensity',
-      'Building Energy Intensity Average'
+      'BUILDING_BENCHMARK',
+      'Building Energy Intensity'
     },
     METHOD_PREVIOUS_YEAR => new List<String>{
-      'Previous Year Average',
-      'Prior Year Daily Average',
-      'Previous Year Daily Average Consumption'
+      'DAILY_AVERAGE_LAST_YEAR',
+      'Previous Year Daily Average'
     },
     METHOD_CURRENT_YEAR => new List<String>{
-      'Current Year Average',
-      'Year To Date Daily Average',
-      'Current Year Daily Average Consumption'
+      'DAILY_AVERAGE_CURRENT_YEAR',
+      'Current Year Daily Average'
     },
-    METHOD_MANUAL => new List<String>{ 'Manual Entry', 'Manual Input' }
+    METHOD_MANUAL => new List<String>{ 'MANUAL' }
   };
 
   // ---- Job status -------------------------------------------------------
@@ -362,14 +358,19 @@ public with sharing class BulkGapFillConstants {
     }
 
     for (String method : ALL_METHODS) {
-      String match = byNormalized.get(normalizeToken(method));
-      if (match == null && METHOD_PICKLIST_ALIASES.containsKey(method)) {
+      String match = null;
+      if (METHOD_PICKLIST_ALIASES.containsKey(method)) {
         for (String alias : METHOD_PICKLIST_ALIASES.get(method)) {
           match = byNormalized.get(normalizeToken(alias));
           if (match != null) {
             break;
           }
         }
+      }
+      // The token is the last resort: it is our wording, not the org's, and it
+      // only lands when it happens to coincide with a label.
+      if (match == null) {
+        match = byNormalized.get(normalizeToken(method));
       }
       if (match != null) {
         resolved.put(method, match);
