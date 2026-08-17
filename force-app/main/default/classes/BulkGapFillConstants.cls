@@ -156,6 +156,16 @@ public with sharing class BulkGapFillConstants {
   /** Parent lookup from an energy use record to its carbon footprint. */
   public static final String FIELD_ENERGY_USE_FOOTPRINT = 'StnryAssetCrbnFtprntId';
 
+  /**
+   * Lookup straight to the stationary asset. Required on insert alongside the
+   * footprint lookup: an energy use record hangs off both, and omitting this one
+   * fails the record with REQUIRED_FIELD_MISSING rather than orphaning it.
+   */
+  public static final String FIELD_ENERGY_USE_ASSET = 'StnryAssetEnvrSrcId';
+
+  /** Also required on insert; generated records get a descriptive name. */
+  public static final String FIELD_ENERGY_USE_NAME = 'Name';
+
   public static final String FIELD_ENERGY_USE_FUEL_TYPE = 'FuelType';
   public static final String FIELD_ENERGY_USE_START = 'StartDate';
   public static final String FIELD_ENERGY_USE_END = 'EndDate';
@@ -174,7 +184,9 @@ public with sharing class BulkGapFillConstants {
 
   /** Energy use fields the batch selects, beyond `Id`. */
   public static final List<String> ENERGY_USE_FIELDS = new List<String>{
+    FIELD_ENERGY_USE_NAME,
     FIELD_ENERGY_USE_FOOTPRINT,
+    FIELD_ENERGY_USE_ASSET,
     FIELD_ENERGY_USE_FUEL_TYPE,
     FIELD_ENERGY_USE_START,
     FIELD_ENERGY_USE_END,
@@ -380,7 +392,8 @@ public with sharing class BulkGapFillConstants {
   }
 
   private static Schema.DescribeFieldResult describeFillMethodField() {
-    Schema.SObjectType energyUse = Schema.getGlobalDescribe().get(OBJ_ENERGY_USE);
+    Schema.SObjectType energyUse = Schema.getGlobalDescribe()
+      .get(OBJ_ENERGY_USE);
     if (energyUse == null) {
       return null;
     }

@@ -156,8 +156,9 @@ npm run lint
 npm run docs
 ```
 
-`npm test` runs the LWC Jest suite, which is currently empty — it exits 1 with
-"No tests found" until the first component test is added.
+`npm test` runs the LWC Jest suite: 33 specs across the four components, covering
+step transitions, the request payload the Configure page builds, the monitor's
+polling and auto-advance behaviour, and the Results CSV escaping.
 
 `npm run docs` generates the Apex reference into `docs/` with
 [apexdocs](https://github.com/cesarParra/apexdocs). That directory is gitignored —
@@ -171,9 +172,25 @@ Apex tests:
 sf apex run test --target-org <your-org> --code-coverage --result-format human
 ```
 
-`BulkGapFillServiceTest` and `BulkGapFillRequestTest` cover the algorithmic core and
-request validation, and run anywhere. `BulkGapFillControllerTest` covers the paths
-touching only custom objects.
+| Class                       | Covers                                                             | Needs NZC? |
+| --------------------------- | ------------------------------------------------------------------ | ---------- |
+| `BulkGapFillServiceTest`    | Gap detection and the five fill formulas, over plain wrappers      | No         |
+| `BulkGapFillRequestTest`    | Request validation, period defaults, JSON round trip               | No         |
+| `BulkGapFillControllerTest` | Controller paths touching only the custom objects                  | No         |
+| `BulkGapFillBatchTest`      | Fill method picklist resolution, detail reconciliation, `finish()` | No         |
+| `BulkGapFillBatchRunTest`   | The batch run end to end, against real NZC records                 | Yes        |
+| `BulkGapFillTestData`       | Fixture builder for the five NZC objects (not a test class)        | Yes        |
+
+`BulkGapFillBatchRunTest` runs the batch and then reads the generated energy use
+records back — the assertion that matters, since a run can report `Filled` while
+creating nothing. Each of its tests no-ops where Net Zero Cloud is absent, so the
+suite stays green in a scratch org without it.
+
+Coverage as of the last full-org run: 91% org-wide, comfortably past the 75%
+deploy gate. Per class — `BulkGapFillJobScheduler` 100%, `BulkGapFillRequest` 97%,
+`BulkGapFillService` 94%, `BulkGapFillBatch` 89%, `BulkGapFillConstants` 86%,
+`BulkGapFillController` 70%. The controller is the thinnest: its uncovered lines
+are mostly `catch` blocks that rethrow as `AuraHandledException`.
 
 ---
 
@@ -190,13 +207,14 @@ launched. Assign the permission set — do not rely on object access alone.
 
 Known gaps in this implementation, so nobody discovers them the hard way:
 
-- **Some NZC API names are unverified.** Every object name and every BEI field in
-  `BulkGapFillConstants` is confirmed. The rest — the energy use, footprint, and asset
-  field names carried over from the project spec — have not been checked against an org
-  with Net Zero Cloud installed. `validateSchema()` now covers all of them, and the
-  dynamic SOQL is built from the same lists it validates, so a name cannot pass
-  validation while the queries use something else. Run it against the target org before
-  the first deploy — the queries are dynamic, so a clean deploy proves nothing.
+- **NZC API names are verified, for one org.** `BulkGapFillBatchRunTest` reads and
+  writes every object and field in `BulkGapFillConstants` against a real Net Zero
+  Cloud org, and dynamic SOQL fails loudly on a bad name, so the names are no longer
+  taken on trust. That is evidence from one org on one NZC release, not a guarantee:
+  run `validateSchema()` against any new target org before the first deploy. One
+  branch remains unexercised end to end — a benchmark that populates only
+  `AnnualIntensityValueInKwhSqft` and not the metric column, so the imperial
+  conversion in `toKwhPerSquareMetre` is covered by unit test only.
 - **A benchmark missing the fuel type is skipped, quietly.** Intensity values are keyed
   by fuel type on the child `BldgEnrgyIntensityVal` records. When a benchmark has no row
   for the fuel type being filled, the fill resolves to a **Skipped** detail row rather
@@ -211,11 +229,10 @@ Known gaps in this implementation, so nobody discovers them the hard way:
   `EnergyRecord.isGapFilled` is already populated for when it is implemented, from
   `IsSystemGeneratedRecord` — the flag the native process sets, so records filled by
   either route count.
-- **No end-to-end batch test.** `BulkGapFillBatch` has no test class, because
-  exercising it requires NZC data. Coverage will be short of the 75% deployment
-  threshold until that exists.
-- **No LWC Jest tests.** None of the four components have specs yet, so `npm test`
-  exits 1.
+- **Two failure paths are deliberately untested.** The chunk-level `catch` in
+  `execute()` and the partial-failure branch of `Database.insert` both need DML to
+  fail against real NZC objects. Forcing that would distort the fixtures more than
+  the coverage is worth, so they are left uncovered knowingly rather than missed.
 - **Abort does not roll back.** Aborting a run stops further chunks; records already
   inserted by completed chunks remain.
 - **CSV export covers loaded rows only.** The Results grid pages at 200 rows; page

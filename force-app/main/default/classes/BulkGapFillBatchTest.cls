@@ -16,8 +16,8 @@
  * field does not exist, there is nothing to violate, and they no-op rather than
  * assert against a schema that isn't there.
  *
- * Not covered: a full `execute()` pass over real `StnryAssetCrbnFtprnt` data. That
- * needs NZC fixtures and is called out in the class doc for BulkGapFillBatch.
+ * A full `execute()` pass over real Net Zero Cloud records lives in
+ * `BulkGapFillBatchRunTest`, which needs fixtures this class deliberately avoids.
  */
 @IsTest
 private class BulkGapFillBatchTest {

@@ -2633,12 +2633,16 @@
     <div class="note warn">
       <span class="label">Other live limitations</span>
       <p>
-        <code>BulkGapFillBatch</code> has no test class — exercising it needs
-        NZC data — so coverage sits below the 75% deploy threshold; the LWC Jest
-        suite is empty, so <code>npm test</code> exits 1; aborting a run stops
-        later chunks but does not roll back earlier inserts; and CSV export
-        covers only the detail rows currently loaded in the grid, which pages at
-        200.
+        Aborting a run stops later chunks but does not roll back earlier
+        inserts; and CSV export covers only the detail rows currently loaded in
+        the grid, which pages at 200.
+      </p>
+      <p>
+        Two failure paths are knowingly untested: the chunk-level
+        <code>catch</code> in <code>execute()</code>, and the partial-failure
+        branch of <code>Database.insert</code>. Both need DML to fail against
+        real NZC objects, and forcing that distorts the fixtures more than the
+        coverage is worth.
       </p>
       <p>
         The date convention is also a decision, not a given: this build treats
@@ -2706,5 +2710,26 @@
         </p>
       </li>
     </ol>
+
+    <div class="note">
+      <span class="label">How this is verified</span>
+      <p>
+        <code>BulkGapFillBatchRunTest</code> runs the batch against real Net
+        Zero Cloud records and then reads the generated energy use rows back.
+        That read is the point: a run can detect gaps, report <em>Filled</em>,
+        and create nothing — which is exactly what a restricted picklist
+        rejecting every insert looked like from the results grid. It covers all
+        five fill methods, dry runs, year and asset-type scoping, and the skip
+        paths.
+      </p>
+      <p>
+        <code>BulkGapFillServiceTest</code>,
+        <code>BulkGapFillRequestTest</code>,
+        <code>BulkGapFillControllerTest</code>, and
+        <code>BulkGapFillBatchTest</code> need no NZC data and stay green in a
+        scratch org without it, as do the four LWC Jest suites. Org-wide Apex
+        coverage sits at 91%.
+      </p>
+    </div>
   </section>
 </div>
