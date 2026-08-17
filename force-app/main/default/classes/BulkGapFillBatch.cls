@@ -200,6 +200,7 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
     List<BulkGapFillJobDetail__c> details
   ) {
     Id footprintId = (Id) footprint.get('Id');
+    Id assetId = (Id) footprint.get(BulkGapFillConstants.FIELD_FOOTPRINT_ASSET);
     String method = request.methodFor(footprintId);
 
     Set<String> fuelFilter = request.fuelTypes == null
@@ -253,7 +254,7 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
         if (!request.isDryRun) {
           staged.add(
             new StagedFill(
-              buildEnergyUse(footprintId, gapSet, gap, value, method),
+              buildEnergyUse(footprintId, assetId, gapSet, gap, value, method),
               detail,
               value
             )
@@ -558,6 +559,9 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
   /** ErrorMessage__c is a 32,768 character long text area. */
   private static final Integer MAX_DETAIL_ERROR_CHARS = 32000;
 
+  /** Standard Name fields cap at 80 characters. */
+  private static final Integer MAX_ENERGY_USE_NAME_CHARS = 80;
+
   /**
    * One staged energy use record, tied to the detail row that reports it and the
    * value it contributed, so a failed insert can be undone from both.
@@ -579,8 +583,30 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
     }
   }
 
+  /**
+   * Names a generated record so it is identifiable in a list view without opening
+   * it. ISO dates rather than Date.format(), which is locale dependent and would
+   * make the name vary by whoever ran the batch.
+   */
+  private static String generatedName(
+    String fuelType,
+    BulkGapFillService.DateRange gap
+  ) {
+    String name =
+      'Gap Fill ' +
+      fuelType +
+      ' ' +
+      String.valueOf(gap.startDate) +
+      ' to ' +
+      String.valueOf(gap.endDate);
+    return name.length() > MAX_ENERGY_USE_NAME_CHARS
+      ? name.substring(0, MAX_ENERGY_USE_NAME_CHARS)
+      : name;
+  }
+
   private SObject buildEnergyUse(
     Id footprintId,
+    Id assetId,
     BulkGapFillService.FuelGapSet gapSet,
     BulkGapFillService.DateRange gap,
     Decimal value,
@@ -590,6 +616,14 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
       .get(BulkGapFillConstants.OBJ_ENERGY_USE)
       .newSObject();
 
+    // Name and the asset lookup are both required on insert. The footprint lookup
+    // alone is not enough: an energy use record hangs off the asset as well, and
+    // leaving either out fails the record with REQUIRED_FIELD_MISSING.
+    rec.put(
+      BulkGapFillConstants.FIELD_ENERGY_USE_NAME,
+      generatedName(gapSet.fuelType, gap)
+    );
+    rec.put(BulkGapFillConstants.FIELD_ENERGY_USE_ASSET, assetId);
     rec.put(BulkGapFillConstants.FIELD_ENERGY_USE_FOOTPRINT, footprintId);
     rec.put(BulkGapFillConstants.FIELD_ENERGY_USE_FUEL_TYPE, gapSet.fuelType);
     rec.put(BulkGapFillConstants.FIELD_ENERGY_USE_START, gap.startDate);
@@ -639,7 +673,14 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
         continue;
       }
       errorCount++;
-      String message = results[i].getErrors()[0].getMessage();
+      // Every error, not just the first: a record can fail validation on several
+      // counts at once, and reporting one of them sends the reader after a single
+      // cause when there are more.
+      List<String> reasons = new List<String>();
+      for (Database.Error err : results[i].getErrors()) {
+        reasons.add(err.getMessage());
+      }
+      String message = String.join(reasons, ' | ');
       logError(
         'Energy use insert failed for footprint ' +
           records[i].get(BulkGapFillConstants.FIELD_ENERGY_USE_FOOTPRINT) +
