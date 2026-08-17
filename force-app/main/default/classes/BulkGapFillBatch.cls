@@ -251,11 +251,13 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
         Decimal value = BulkGapFillService.valueForGap(dailyRate, gap);
         energyFilled += value;
         if (!request.isDryRun) {
-          StagedFill fill = new StagedFill();
-          fill.record = buildEnergyUse(footprintId, gapSet, gap, value, method);
-          fill.detail = detail;
-          fill.value = value;
-          staged.add(fill);
+          staged.add(
+            new StagedFill(
+              buildEnergyUse(footprintId, gapSet, gap, value, method),
+              detail,
+              value
+            )
+          );
         }
       }
 
@@ -560,10 +562,21 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
    * One staged energy use record, tied to the detail row that reports it and the
    * value it contributed, so a failed insert can be undone from both.
    */
+  @TestVisible
   private class StagedFill {
-    SObject record;
-    BulkGapFillJobDetail__c detail;
-    Decimal value;
+    public SObject record;
+    public BulkGapFillJobDetail__c detail;
+    public Decimal value;
+
+    public StagedFill(
+      SObject record,
+      BulkGapFillJobDetail__c detail,
+      Decimal value
+    ) {
+      this.record = record;
+      this.detail = detail;
+      this.value = value;
+    }
   }
 
   private SObject buildEnergyUse(
@@ -636,8 +649,16 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
       recordFailure(staged[i], message);
     }
 
-    // A row that lost every record it staged did not fill anything, whatever it
-    // said a moment ago.
+    demoteEmptyDetails(staged);
+    return inserted;
+  }
+
+  /**
+   * Turns a detail row that lost every record it staged into an error, whatever it
+   * said a moment ago. A row that kept even one insert is still a partial fill.
+   */
+  @TestVisible
+  private static void demoteEmptyDetails(List<StagedFill> staged) {
     for (StagedFill fill : staged) {
       if (
         fill.detail.Status__c == BulkGapFillConstants.DETAIL_FILLED &&
@@ -646,11 +667,11 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
         fill.detail.Status__c = BulkGapFillConstants.DETAIL_ERROR;
       }
     }
-    return inserted;
   }
 
   /** Backs one failed insert out of the detail row that counted it. */
-  private void recordFailure(StagedFill fill, String message) {
+  @TestVisible
+  private static void recordFailure(StagedFill fill, String message) {
     BulkGapFillJobDetail__c detail = fill.detail;
 
     if (detail.RecordsCreated__c != null && detail.RecordsCreated__c > 0) {
