@@ -35,6 +35,44 @@ public with sharing class BulkGapFillConstants {
     METHOD_MANUAL
   };
 
+  /**
+   * Spellings tried when mapping an internal fill method token onto the
+   * `DataGapFillingMethodName` picklist.
+   *
+   * That field is a standard restricted picklist owned by Net Zero Cloud, so the
+   * values it accepts are Salesforce's and need not match the tokens above.
+   * Writing a token straight into it fails the insert with "bad value for
+   * restricted picklist field". The org's own active values are the authority —
+   * `gapFillMethodPicklistValue` describes the field at run time and matches on
+   * both value and label — and these aliases only widen that match for orgs whose
+   * wording differs. Add a spelling here rather than editing the tokens, which are
+   * also stored in `BulkGapFillJob__c.DefaultFillMethod__c` and would break
+   * existing job records.
+   */
+  private static final Map<String, List<String>> METHOD_PICKLIST_ALIASES = new Map<String, List<String>>{
+    METHOD_REGIONAL_BEI => new List<String>{
+      'Regional Building Energy Intensity',
+      'Regional Building Energy Intensity Average',
+      'Regional Energy Intensity'
+    },
+    METHOD_BUILDING_BEI => new List<String>{
+      'Building Energy Intensity',
+      'Custom Building Energy Intensity',
+      'Building Energy Intensity Average'
+    },
+    METHOD_PREVIOUS_YEAR => new List<String>{
+      'Previous Year Average',
+      'Prior Year Daily Average',
+      'Previous Year Daily Average Consumption'
+    },
+    METHOD_CURRENT_YEAR => new List<String>{
+      'Current Year Average',
+      'Year To Date Daily Average',
+      'Current Year Daily Average Consumption'
+    },
+    METHOD_MANUAL => new List<String>{ 'Manual Entry', 'Manual Input' }
+  };
+
   // ---- Job status -------------------------------------------------------
   public static final String JOB_QUEUED = 'Queued';
   public static final String JOB_RUNNING = 'Running';
@@ -244,6 +282,121 @@ public with sharing class BulkGapFillConstants {
     return kwhPerSqFt == null ? null : kwhPerSqFt * SQFT_PER_SQM;
   }
 
+  // ---- Fill method picklist resolution ----------------------------------
+
+  /** Resolved once per transaction; describe calls are not free. */
+  private static Map<String, String> methodPicklistCache;
+
+  /**
+   * @description Maps an internal fill method token onto the value this org's
+   * `DataGapFillingMethodName` picklist will actually accept.
+   *
+   * The field is a standard restricted picklist, so its values belong to Net Zero
+   * Cloud rather than to us and vary by release. Resolving against a live describe
+   * keeps that difference in one place instead of hardcoding a literal that fails
+   * the same way the token did.
+   *
+   * @param method An internal token, for example `METHOD_CURRENT_YEAR`.
+   * @return The value to write: the org's matching picklist value, `method`
+   *         unchanged when the field is not a picklist in this org, or null when
+   *         nothing matches. Callers must treat null as "leave the field unset"
+   *         rather than write it, or the insert fails.
+   */
+  public static String gapFillMethodPicklistValue(String method) {
+    if (String.isBlank(method)) {
+      return null;
+    }
+    if (methodPicklistCache == null) {
+      methodPicklistCache = buildMethodPicklistMap();
+    }
+    return methodPicklistCache.get(method);
+  }
+
+  /**
+   * @description The active values this org's `DataGapFillingMethodName` picklist
+   * accepts, for surfacing in schema warnings.
+   * @return The active picklist values, or an empty list when the field is absent
+   *         or is not a picklist here.
+   */
+  public static List<String> gapFillMethodPicklistOptions() {
+    List<String> values = new List<String>();
+    Schema.DescribeFieldResult field = describeFillMethodField();
+    if (field == null) {
+      return values;
+    }
+    for (Schema.PicklistEntry entry : field.getPicklistValues()) {
+      if (entry.isActive()) {
+        values.add(entry.getValue());
+      }
+    }
+    return values;
+  }
+
+  private static Map<String, String> buildMethodPicklistMap() {
+    Map<String, String> resolved = new Map<String, String>();
+
+    Schema.DescribeFieldResult field = describeFillMethodField();
+    if (field == null) {
+      return resolved; // Missing field; validateSchema reports it separately.
+    }
+
+    List<Schema.PicklistEntry> entries = field.getPicklistValues();
+    if (entries.isEmpty()) {
+      // Not a picklist in this org, so there is nothing to restrict the value and
+      // the token can be written through unchanged.
+      for (String method : ALL_METHODS) {
+        resolved.put(method, method);
+      }
+      return resolved;
+    }
+
+    // Match on value and on label: orgs differ in which one carries the wording
+    // an admin would recognise.
+    Map<String, String> byNormalized = new Map<String, String>();
+    for (Schema.PicklistEntry entry : entries) {
+      if (!entry.isActive()) {
+        continue;
+      }
+      byNormalized.put(normalizeToken(entry.getValue()), entry.getValue());
+      byNormalized.put(normalizeToken(entry.getLabel()), entry.getValue());
+    }
+
+    for (String method : ALL_METHODS) {
+      String match = byNormalized.get(normalizeToken(method));
+      if (match == null && METHOD_PICKLIST_ALIASES.containsKey(method)) {
+        for (String alias : METHOD_PICKLIST_ALIASES.get(method)) {
+          match = byNormalized.get(normalizeToken(alias));
+          if (match != null) {
+            break;
+          }
+        }
+      }
+      if (match != null) {
+        resolved.put(method, match);
+      }
+    }
+    return resolved;
+  }
+
+  private static Schema.DescribeFieldResult describeFillMethodField() {
+    Schema.SObjectType energyUse = Schema.getGlobalDescribe().get(OBJ_ENERGY_USE);
+    if (energyUse == null) {
+      return null;
+    }
+    Schema.SObjectField field = energyUse.getDescribe()
+      .fields.getMap()
+      .get(FIELD_ENERGY_USE_FILL_METHOD.toLowerCase());
+    return field == null ? null : field.getDescribe();
+  }
+
+  /**
+   * Reduces a value to letters and digits so wording differences that do not
+   * change meaning — case, spaces, punctuation — still match.
+   */
+  private static String normalizeToken(String value) {
+    return value == null ? '' : value.toLowerCase().replaceAll('[^a-z0-9]', '');
+  }
+
   /**
    * @description Confirms every Net Zero Cloud object and field the solution
    * depends on actually exists and is accessible in the running org.
@@ -292,6 +445,50 @@ public with sharing class BulkGapFillConstants {
         problems.addAll(checkField(globals, objName, fieldName));
       }
     }
+
+    problems.addAll(checkFillMethodPicklist());
+    return problems;
+  }
+
+  /**
+   * Reports fill methods this org's `DataGapFillingMethodName` picklist will not
+   * accept, and names the values it does. Checked here so the Configure page warns
+   * before a run rather than after every insert in that run has already failed.
+   */
+  private static List<String> checkFillMethodPicklist() {
+    List<String> problems = new List<String>();
+
+    List<String> options = gapFillMethodPicklistOptions();
+    if (options.isEmpty()) {
+      // Either the field is absent, already reported above, or it is not a
+      // picklist here — in which case there is nothing to violate.
+      return problems;
+    }
+
+    List<String> unmapped = new List<String>();
+    for (String method : ALL_METHODS) {
+      if (gapFillMethodPicklistValue(method) == null) {
+        unmapped.add(method);
+      }
+    }
+    if (unmapped.isEmpty()) {
+      return problems;
+    }
+    unmapped.sort();
+
+    problems.add(
+      'No value in ' +
+        FIELD_ENERGY_USE_FILL_METHOD +
+        ' on ' +
+        OBJ_ENERGY_USE +
+        ' matches these fill methods: ' +
+        String.join(unmapped, ', ') +
+        '. Records will still be created and flagged as system generated, but ' +
+        'without a method stamp. Values this org accepts: ' +
+        String.join(options, ', ') +
+        '. Add the right spelling to METHOD_PICKLIST_ALIASES in ' +
+        'BulkGapFillConstants to close the gap.'
+    );
     return problems;
   }
 

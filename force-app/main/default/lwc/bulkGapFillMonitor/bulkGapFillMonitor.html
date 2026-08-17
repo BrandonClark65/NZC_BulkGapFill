@@ -46,8 +46,15 @@
 
     <template lwc:if={hasErrors}>
       <div class="slds-box slds-theme_warning slds-var-m-bottom_medium">
-        Some footprints could not be processed. Review the results for per-asset
-        detail.
+        <p class="slds-var-m-bottom_x-small">
+          Some records could not be created. The assets affected are marked with
+          an error in the results.
+        </p>
+        <template lwc:if={errorLog}>
+          <pre class="slds-text-font_monospace slds-text-body_small error-log">
+{errorLog}</pre
+          >
+        </template>
       </div>
     </template>
 

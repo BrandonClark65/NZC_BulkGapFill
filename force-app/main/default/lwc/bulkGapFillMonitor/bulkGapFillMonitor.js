@@ -51,6 +51,10 @@ export default class BulkGapFillMonitor extends LightningElement {
     return (this.job?.ErrorCount__c ?? 0) > 0;
   }
 
+  get errorLog() {
+    return this.job?.ErrorLog__c;
+  }
+
   get statusVariant() {
     if (this.hasErrors) {
       return "warning";
@@ -82,6 +86,11 @@ export default class BulkGapFillMonitor extends LightningElement {
 
     if (this.isComplete) {
       this.stopPolling();
+      if (this.hasErrors) {
+        // Errors only become visible on this final poll, so advancing on a timer
+        // would flash them past unread. Hold here and let the user click through.
+        return;
+      }
       // Give the user a beat to read the final counts before advancing.
       // eslint-disable-next-line @lwc/lwc/no-async-operation
       this.pollTimerId = setTimeout(() => {
