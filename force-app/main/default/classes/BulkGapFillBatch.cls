@@ -145,7 +145,7 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
    * @param scope The carbon footprint records in this chunk.
    */
   public void execute(Database.BatchableContext bc, List<SObject> scope) {
-    List<SObject> energyUseToInsert = new List<SObject>();
+    List<StagedFill> staged = new List<StagedFill>();
     List<BulkGapFillJobDetail__c> details = new List<BulkGapFillJobDetail__c>();
 
     try {
@@ -165,7 +165,7 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
             footprint,
             currentByFootprint.get((Id) footprint.get('Id')),
             priorByFootprint.get((Id) footprint.get('Id')),
-            energyUseToInsert,
+            staged,
             details
           );
         } catch (Exception e) {
@@ -174,8 +174,8 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
         }
       }
 
-      if (!request.isDryRun && !energyUseToInsert.isEmpty()) {
-        recordsCreated += commitEnergyUse(energyUseToInsert, details);
+      if (!request.isDryRun && !staged.isEmpty()) {
+        recordsCreated += commitEnergyUse(staged);
       }
     } catch (Exception e) {
       // A chunk-level failure (bad query, missing field) applies to every
@@ -196,7 +196,7 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
     SObject footprint,
     List<BulkGapFillService.EnergyRecord> currentRecords,
     List<BulkGapFillService.EnergyRecord> priorRecords,
-    List<SObject> energyUseToInsert,
+    List<StagedFill> staged,
     List<BulkGapFillJobDetail__c> details
   ) {
     Id footprintId = (Id) footprint.get('Id');
@@ -251,8 +251,12 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
         Decimal value = BulkGapFillService.valueForGap(dailyRate, gap);
         energyFilled += value;
         if (!request.isDryRun) {
-          energyUseToInsert.add(
-            buildEnergyUse(footprintId, gapSet, gap, value, method)
+          staged.add(
+            new StagedFill(
+              buildEnergyUse(footprintId, gapSet, gap, value, method),
+              detail,
+              value
+            )
           );
         }
       }
@@ -551,6 +555,30 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
 
   // ---- Record construction ----------------------------------------------
 
+  /** ErrorMessage__c is a 32,768 character long text area. */
+  private static final Integer MAX_DETAIL_ERROR_CHARS = 32000;
+
+  /**
+   * One staged energy use record, tied to the detail row that reports it and the
+   * value it contributed, so a failed insert can be undone from both.
+   */
+  @TestVisible
+  private class StagedFill {
+    public SObject record;
+    public BulkGapFillJobDetail__c detail;
+    public Decimal value;
+
+    public StagedFill(
+      SObject record,
+      BulkGapFillJobDetail__c detail,
+      Decimal value
+    ) {
+      this.record = record;
+      this.detail = detail;
+      this.value = value;
+    }
+  }
+
   private SObject buildEnergyUse(
     Id footprintId,
     BulkGapFillService.FuelGapSet gapSet,
@@ -574,31 +602,109 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
     // Match what the native process stamps: the generated flag marks the record as
     // an estimate, the method name records how it was derived.
     rec.put(BulkGapFillConstants.FIELD_ENERGY_USE_IS_SYSTEM_GENERATED, true);
-    rec.put(BulkGapFillConstants.FIELD_ENERGY_USE_FILL_METHOD, method);
+
+    // The method name is a standard restricted picklist, so it takes the org's
+    // value rather than our token. When nothing maps, leave it unset: an estimate
+    // that is stamped as generated but not attributed is still correct and still
+    // inserts, whereas an unaccepted value fails the whole record. The method is
+    // preserved either way on the detail row's FillMethodUsed__c, and
+    // validateSchema warns about the mismatch up front.
+    String stamp = BulkGapFillConstants.gapFillMethodPicklistValue(method);
+    if (stamp != null) {
+      rec.put(BulkGapFillConstants.FIELD_ENERGY_USE_FILL_METHOD, stamp);
+    }
     return rec;
   }
 
-  /** Inserts staged records with partial success, logging each failure. */
-  private Integer commitEnergyUse(
-    List<SObject> records,
-    List<BulkGapFillJobDetail__c> details
-  ) {
+  /**
+   * Inserts staged records with partial success, logging each failure and
+   * correcting the detail row that reported it.
+   *
+   * The detail rows are written optimistically during gap detection, before any
+   * DML has happened, so a failure here has to be reflected back onto them —
+   * otherwise the per-asset audit trail claims records were created that do not
+   * exist, and the only evidence of the failure is the job-level error log.
+   */
+  private Integer commitEnergyUse(List<StagedFill> staged) {
+    List<SObject> records = new List<SObject>();
+    for (StagedFill fill : staged) {
+      records.add(fill.record);
+    }
+
     Integer inserted = 0;
     List<Database.SaveResult> results = Database.insert(records, false);
     for (Integer i = 0; i < results.size(); i++) {
       if (results[i].isSuccess()) {
         inserted++;
-      } else {
-        errorCount++;
-        logError(
-          'Energy use insert failed for footprint ' +
-            records[i].get(BulkGapFillConstants.FIELD_ENERGY_USE_FOOTPRINT) +
-            ': ' +
-            results[i].getErrors()[0].getMessage()
-        );
+        continue;
+      }
+      errorCount++;
+      String message = results[i].getErrors()[0].getMessage();
+      logError(
+        'Energy use insert failed for footprint ' +
+          records[i].get(BulkGapFillConstants.FIELD_ENERGY_USE_FOOTPRINT) +
+          ': ' +
+          message
+      );
+      recordFailure(staged[i], message);
+    }
+
+    demoteEmptyDetails(staged);
+    return inserted;
+  }
+
+  /**
+   * Turns a detail row that lost every record it staged into an error, whatever it
+   * said a moment ago. A row that kept even one insert is still a partial fill.
+   */
+  @TestVisible
+  private static void demoteEmptyDetails(List<StagedFill> staged) {
+    for (StagedFill fill : staged) {
+      if (
+        fill.detail.Status__c == BulkGapFillConstants.DETAIL_FILLED &&
+        fill.detail.RecordsCreated__c == 0
+      ) {
+        fill.detail.Status__c = BulkGapFillConstants.DETAIL_ERROR;
       }
     }
-    return inserted;
+  }
+
+  /** Backs one failed insert out of the detail row that counted it. */
+  @TestVisible
+  private static void recordFailure(StagedFill fill, String message) {
+    BulkGapFillJobDetail__c detail = fill.detail;
+
+    if (detail.RecordsCreated__c != null && detail.RecordsCreated__c > 0) {
+      detail.RecordsCreated__c -= 1;
+    }
+    if (detail.EnergyFilled__c != null && fill.value != null) {
+      Decimal remaining = detail.EnergyFilled__c - fill.value;
+      detail.EnergyFilled__c = remaining <= 0
+        ? 0
+        : remaining.setScale(4, System.RoundingMode.HALF_UP);
+    }
+    appendDetailError(detail, message);
+  }
+
+  /**
+   * Appends a message to a detail row. Every gap in a fuel set usually fails for
+   * the same reason, so repeats are dropped rather than printed once per record.
+   */
+  private static void appendDetailError(
+    BulkGapFillJobDetail__c detail,
+    String message
+  ) {
+    if (String.isBlank(detail.ErrorMessage__c)) {
+      detail.ErrorMessage__c = message;
+      return;
+    }
+    if (detail.ErrorMessage__c.contains(message)) {
+      return;
+    }
+    String combined = detail.ErrorMessage__c + '\n' + message;
+    detail.ErrorMessage__c = combined.length() > MAX_DETAIL_ERROR_CHARS
+      ? combined.substring(0, MAX_DETAIL_ERROR_CHARS)
+      : combined;
   }
 
   private BulkGapFillJobDetail__c baseDetail(SObject footprint) {

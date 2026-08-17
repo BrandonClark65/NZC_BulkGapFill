@@ -95,6 +95,23 @@ the marker the standard process uses, so anything separating estimates from actu
 reporting views, `skipAlreadyFilled` — keys off that, and our generated records set it
 alongside `DataGapFillingMethodName`.
 
+`DataGapFillingMethodName` is a **restricted** picklist owned by Net Zero Cloud, and
+its API values are not the wording used anywhere else in this project. Writing one of
+our own method tokens into it fails the insert with "bad value for restricted picklist
+field":
+
+| API value                    | Label                               | Our token                     |
+| ---------------------------- | ----------------------------------- | ----------------------------- |
+| `REGIONAL_BENCHMARK`         | Regional Building Energy Intensity  | `Regional BEI`                |
+| `BUILDING_BENCHMARK`         | Building Energy Intensity           | `Building BEI`                |
+| `DAILY_AVERAGE_LAST_YEAR`    | Previous Year Daily Average         | `Previous Year Daily Average` |
+| `DAILY_AVERAGE_CURRENT_YEAR` | Current Year Daily Average          | `Current Year Daily Average`  |
+| `MANUAL`                     | manual                              | `Manual`                      |
+
+Three of the labels coincide with our tokens and two do not, so matching on label alone
+looks like it works until it doesn't. `BulkGapFillConstants.gapFillMethodPicklistValue`
+resolves the API value at run time and is the only thing that should write this field.
+
 ---
 
 ## The Five Fill Methods

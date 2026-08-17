@@ -1,0 +1,9 @@
+/* The error log is untruncated batch output, so keep a long one from pushing
+   the action buttons off screen. */
+.error-log {
+  max-height: 12rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+}
