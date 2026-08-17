@@ -38,6 +38,11 @@
         <name>FlexiPage</name>
     </types>
     <types>
+        <members>BulkGapFillJob__c-Bulk Gap Fill Job Layout</members>
+        <members>BulkGapFillJobDetail__c-Bulk Gap Fill Job Detail Layout</members>
+        <name>Layout</name>
+    </types>
+    <types>
         <members>*</members>
         <name>LightningComponentBundle</name>
     </types>
