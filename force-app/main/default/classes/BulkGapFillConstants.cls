@@ -392,7 +392,8 @@ public with sharing class BulkGapFillConstants {
   }
 
   private static Schema.DescribeFieldResult describeFillMethodField() {
-    Schema.SObjectType energyUse = Schema.getGlobalDescribe().get(OBJ_ENERGY_USE);
+    Schema.SObjectType energyUse = Schema.getGlobalDescribe()
+      .get(OBJ_ENERGY_USE);
     if (energyUse == null) {
       return null;
     }

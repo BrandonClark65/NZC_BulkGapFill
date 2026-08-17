@@ -49,7 +49,12 @@ private class BulkGapFillBatchRunTest {
 
   private static List<BulkGapFillJobDetail__c> detailsFor(Id jobId) {
     return [
-      SELECT Status__c, RecordsCreated__c, GapsFound__c, ErrorMessage__c, FuelType__c
+      SELECT
+        Status__c,
+        RecordsCreated__c,
+        GapsFound__c,
+        ErrorMessage__c,
+        FuelType__c
       FROM BulkGapFillJobDetail__c
       WHERE BulkGapFillJob__c = :jobId
     ];
@@ -89,7 +94,7 @@ private class BulkGapFillBatchRunTest {
     Assert.isFalse(
       generated.isEmpty(),
       'The whole point of the run: records must exist afterwards. Job log: ' +
-        reload(job.Id).ErrorLog__c
+      reload(job.Id).ErrorLog__c
     );
 
     SObject filled = generated[0];
@@ -196,10 +201,7 @@ private class BulkGapFillBatchRunTest {
 
     List<BulkGapFillJobDetail__c> details = detailsFor(job.Id);
     Assert.areEqual(1, details.size());
-    Assert.areEqual(
-      BulkGapFillConstants.DETAIL_NO_GAPS,
-      details[0].Status__c
-    );
+    Assert.areEqual(BulkGapFillConstants.DETAIL_NO_GAPS, details[0].Status__c);
   }
 
   @IsTest
@@ -236,7 +238,8 @@ private class BulkGapFillBatchRunTest {
 
     Assert.isFalse(
       BulkGapFillTestData.energyUseUnder(footprint.Id, true).isEmpty(),
-      'Prior year data makes the fill viable. Log: ' + reload(job.Id).ErrorLog__c
+      'Prior year data makes the fill viable. Log: ' +
+      reload(job.Id).ErrorLog__c
     );
     Assert.areEqual(
       BulkGapFillConstants.gapFillMethodPicklistValue(
@@ -301,10 +304,7 @@ private class BulkGapFillBatchRunTest {
 
     SObject asset = BulkGapFillTestData.asset('HQ');
     SObject footprint = BulkGapFillTestData.footprint(asset.Id, YEAR);
-    footprint.put(
-      BulkGapFillConstants.FIELD_REGIONAL_BEI_LOOKUP,
-      benchmark.Id
-    );
+    footprint.put(BulkGapFillConstants.FIELD_REGIONAL_BEI_LOOKUP, benchmark.Id);
     update footprint;
 
     BulkGapFillTestData.energyUse(
@@ -328,7 +328,7 @@ private class BulkGapFillBatchRunTest {
     Assert.isFalse(
       generated.isEmpty(),
       'A benchmark with a value for this fuel type makes the fill viable. Log: ' +
-        reload(job.Id).ErrorLog__c
+      reload(job.Id).ErrorLog__c
     );
 
     // 200 kWh/m2 over 1,000 m2 is 200,000 kWh a year, or ~547.9 a day.
@@ -355,10 +355,7 @@ private class BulkGapFillBatchRunTest {
 
     SObject asset = BulkGapFillTestData.asset('HQ');
     SObject footprint = BulkGapFillTestData.footprint(asset.Id, YEAR);
-    footprint.put(
-      BulkGapFillConstants.FIELD_REGIONAL_BEI_LOOKUP,
-      benchmark.Id
-    );
+    footprint.put(BulkGapFillConstants.FIELD_REGIONAL_BEI_LOOKUP, benchmark.Id);
     update footprint;
 
     BulkGapFillTestData.energyUse(
@@ -444,7 +441,9 @@ private class BulkGapFillBatchRunTest {
       warehouse.Id,
       YEAR
     );
-    for (SObject fp : new List<SObject>{ officeFootprint, warehouseFootprint }) {
+    for (
+      SObject fp : new List<SObject>{ officeFootprint, warehouseFootprint }
+    ) {
       BulkGapFillTestData.energyUse(
         fp.Id,
         (Id) fp.get(BulkGapFillConstants.FIELD_FOOTPRINT_ASSET),
@@ -504,7 +503,11 @@ private class BulkGapFillBatchRunTest {
 
     Assert.isNotNull(jobId);
     BulkGapFillJob__c job = [
-      SELECT Status__c, AsyncApexJobId__c, FilterCriteria__c, DefaultFillMethod__c
+      SELECT
+        Status__c,
+        AsyncApexJobId__c,
+        FilterCriteria__c,
+        DefaultFillMethod__c
       FROM BulkGapFillJob__c
       WHERE Id = :jobId
     ];

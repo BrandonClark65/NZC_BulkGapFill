@@ -150,10 +150,7 @@ public class BulkGapFillTestData {
     rec.put(BulkGapFillConstants.FIELD_ENERGY_USE_START, startDate);
     rec.put(BulkGapFillConstants.FIELD_ENERGY_USE_END, endDate);
     rec.put(BulkGapFillConstants.FIELD_ENERGY_USE_CONSUMPTION, consumption);
-    rec.put(
-      BulkGapFillConstants.FIELD_ENERGY_USE_CONSUMPTION_UNIT,
-      UNIT_KWH
-    );
+    rec.put(BulkGapFillConstants.FIELD_ENERGY_USE_CONSUMPTION_UNIT, UNIT_KWH);
     insert rec;
     return rec;
   }
@@ -243,6 +240,8 @@ public class BulkGapFillTestData {
         BulkGapFillConstants.FIELD_ENERGY_USE_IS_SYSTEM_GENERATED +
         ' = true';
     }
-    return Database.query(soql + ' ORDER BY ' + BulkGapFillConstants.FIELD_ENERGY_USE_START);
+    return Database.query(
+      soql + ' ORDER BY ' + BulkGapFillConstants.FIELD_ENERGY_USE_START
+    );
   }
 }
