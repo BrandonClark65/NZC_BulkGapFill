@@ -118,6 +118,19 @@ private class BulkGapFillBatchRunTest {
       filled.get(BulkGapFillConstants.FIELD_ENERGY_USE_NAME),
       'Name is required on insert'
     );
+    // The gap left by the measured half year runs Jul 1 to Dec 31, and the name
+    // has to identify the asset, the fill and that period without opening the
+    // record.
+    Assert.areEqual(
+      'HQ Gap Fill ' +
+      BulkGapFillTestData.FUEL_ELECTRICITY +
+      ' ' +
+      String.valueOf(JUN_30.addDays(1)) +
+      ' to ' +
+      String.valueOf(DEC_31),
+      filled.get(BulkGapFillConstants.FIELD_ENERGY_USE_NAME),
+      'Generated name carries the asset name, the gap fill marker and the range'
+    );
 
     BulkGapFillJob__c finished = reload(job.Id);
     Assert.areEqual(
