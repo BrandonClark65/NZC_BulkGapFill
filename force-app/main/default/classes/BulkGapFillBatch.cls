@@ -201,6 +201,14 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
   ) {
     Id footprintId = (Id) footprint.get('Id');
     Id assetId = (Id) footprint.get(BulkGapFillConstants.FIELD_FOOTPRINT_ASSET);
+    // Read once here rather than per gap: the asset name goes into the name of
+    // every record generated for this footprint.
+    SObject asset = footprint.getSObject(
+      BulkGapFillConstants.REL_FOOTPRINT_ASSET
+    );
+    String assetName = asset == null
+      ? null
+      : asText(asset.get(BulkGapFillConstants.FIELD_ASSET_NAME));
     String method = request.methodFor(footprintId);
 
     Set<String> fuelFilter = request.fuelTypes == null
@@ -254,7 +262,15 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
         if (!request.isDryRun) {
           staged.add(
             new StagedFill(
-              buildEnergyUse(footprintId, assetId, gapSet, gap, value, method),
+              buildEnergyUse(
+                footprintId,
+                assetId,
+                assetName,
+                gapSet,
+                gap,
+                value,
+                method
+              ),
               detail,
               value
             )
@@ -585,28 +601,56 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
 
   /**
    * Names a generated record so it is identifiable in a list view without opening
-   * it. ISO dates rather than Date.format(), which is locale dependent and would
-   * make the name vary by whoever ran the batch.
+   * it: the stationary asset it belongs to, that it was gap filled, the fuel type
+   * and the period covered. ISO dates rather than Date.format(), which is locale
+   * dependent and would make the name vary by whoever ran the batch.
+   *
+   * Over the 80 character limit the asset name is what gives, not the tail: two
+   * generated records under one asset are told apart by fuel type and date range,
+   * so those have to survive.
    */
   private static String generatedName(
+    String assetName,
     String fuelType,
     BulkGapFillService.DateRange gap
   ) {
-    String name =
+    String suffix =
       'Gap Fill ' +
       fuelType +
       ' ' +
       String.valueOf(gap.startDate) +
       ' to ' +
       String.valueOf(gap.endDate);
-    return name.length() > MAX_ENERGY_USE_NAME_CHARS
-      ? name.substring(0, MAX_ENERGY_USE_NAME_CHARS)
-      : name;
+
+    String prefix = assetName == null ? null : assetName.trim();
+    if (String.isBlank(prefix)) {
+      return truncateName(suffix);
+    }
+
+    // One character held back for the space between the two halves.
+    Integer room = MAX_ENERGY_USE_NAME_CHARS - suffix.length() - 1;
+    if (room <= 0) {
+      return truncateName(suffix);
+    }
+    if (prefix.length() > room) {
+      prefix = prefix.substring(0, room).trim();
+      if (String.isBlank(prefix)) {
+        return truncateName(suffix);
+      }
+    }
+    return prefix + ' ' + suffix;
+  }
+
+  private static String truncateName(String value) {
+    return value.length() > MAX_ENERGY_USE_NAME_CHARS
+      ? value.substring(0, MAX_ENERGY_USE_NAME_CHARS)
+      : value;
   }
 
   private SObject buildEnergyUse(
     Id footprintId,
     Id assetId,
+    String assetName,
     BulkGapFillService.FuelGapSet gapSet,
     BulkGapFillService.DateRange gap,
     Decimal value,
@@ -621,7 +665,7 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
     // leaving either out fails the record with REQUIRED_FIELD_MISSING.
     rec.put(
       BulkGapFillConstants.FIELD_ENERGY_USE_NAME,
-      generatedName(gapSet.fuelType, gap)
+      generatedName(assetName, gapSet.fuelType, gap)
     );
     rec.put(BulkGapFillConstants.FIELD_ENERGY_USE_ASSET, assetId);
     rec.put(BulkGapFillConstants.FIELD_ENERGY_USE_FOOTPRINT, footprintId);
