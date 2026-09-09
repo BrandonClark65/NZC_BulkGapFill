@@ -222,6 +222,56 @@ describe("c-bulk-gap-fill-results", () => {
     expect(back).toHaveBeenCalled();
   });
 
+  it("hides Run Full Gap Fill for a live run", async () => {
+    await render();
+
+    expect(buttonNamed("Run Full Gap Fill")).toBeUndefined();
+  });
+
+  it("offers to run a dry run for real, using the job's own stored configuration", async () => {
+    getJobStatus.mockResolvedValue({
+      job: {
+        ...JOB.job,
+        IsDryRun__c: true,
+        FilterCriteria__c: JSON.stringify({
+          reportingYear: 2025,
+          defaultFillMethod: "Current Year Daily Average",
+          isDryRun: true
+        })
+      }
+    });
+    await render();
+
+    const runFull = jest.fn();
+    element.addEventListener("runfull", runFull);
+
+    buttonNamed("Run Full Gap Fill").click();
+
+    expect(runFull).toHaveBeenCalledTimes(1);
+    expect(runFull.mock.calls[0][0].detail.request).toEqual({
+      reportingYear: 2025,
+      defaultFillMethod: "Current Year Daily Average",
+      isDryRun: true
+    });
+  });
+
+  it("explains rather than launching when the stored configuration cannot be read back", async () => {
+    getJobStatus.mockResolvedValue({
+      job: { ...JOB.job, IsDryRun__c: true, FilterCriteria__c: null }
+    });
+    await render();
+
+    const runFull = jest.fn();
+    const toast = jest.fn();
+    element.addEventListener("runfull", runFull);
+    element.addEventListener("lightning__showtoast", toast);
+
+    buttonNamed("Run Full Gap Fill").click();
+
+    expect(runFull).not.toHaveBeenCalled();
+    expect(toast.mock.calls[0][0].detail.variant).toBe("error");
+  });
+
   it("explains when the results cannot be loaded", async () => {
     getJobDetails.mockRejectedValue({ body: { message: "Job not found" } });
     const toast = jest.fn();

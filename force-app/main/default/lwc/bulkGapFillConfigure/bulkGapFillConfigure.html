@@ -82,13 +82,15 @@
       medium-device-size="6"
       padding="around-small"
     >
-      <lightning-input
+      <lightning-dual-listbox
         label="Fuel Types"
-        value={fuelTypesRaw}
+        source-label="Available"
+        selected-label="Included"
+        options={fuelTypeOptions}
+        value={selectedFuelTypes}
         onchange={handleFuelTypesChange}
-        placeholder="Electricity, Natural Gas"
-        field-level-help="Comma separated. Leave empty to gap fill every fuel type present on the asset."
-      ></lightning-input>
+        field-level-help="Leave empty to include every fuel type present on the asset."
+      ></lightning-dual-listbox>
     </lightning-layout-item>
 
     <lightning-layout-item
@@ -113,12 +115,6 @@
         label="Dry run — detect and report gaps without creating records"
         checked={isDryRun}
         onchange={handleDryRunChange}
-      ></lightning-input>
-      <lightning-input
-        type="checkbox"
-        label="Associate orphan energy use records before detecting gaps"
-        checked={associateOrphans}
-        onchange={handleAssociateOrphansChange}
       ></lightning-input>
       <lightning-input
         type="checkbox"

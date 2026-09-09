@@ -53,6 +53,7 @@ private class BulkGapFillBatchRunTest {
         Status__c,
         RecordsCreated__c,
         GapsFound__c,
+        GapDays__c,
         ErrorMessage__c,
         FuelType__c
       FROM BulkGapFillJobDetail__c
@@ -450,6 +451,178 @@ private class BulkGapFillBatchRunTest {
       BulkGapFillConstants.DETAIL_SKIPPED,
       detailsFor(job.Id)[0].Status__c
     );
+  }
+
+  /**
+   * A footprint with its own StartDate/EndDate — a fiscal year running Jul 1 to
+   * Jun 30 — must be gap filled against that span, not Jan 1 - Dec 31.
+   */
+  @IsTest
+  static void gapDetectionUsesTheFootprintsOwnPeriodWhenSet() {
+    if (!BulkGapFillTestData.isNetZeroCloudAvailable()) {
+      return;
+    }
+    Date fiscalStart = Date.newInstance(YEAR, 7, 1);
+    Date fiscalEnd = Date.newInstance(YEAR + 1, 6, 30);
+
+    SObject asset = BulkGapFillTestData.asset('HQ');
+    SObject footprint = BulkGapFillTestData.footprint(
+      asset.Id,
+      YEAR,
+      fiscalStart,
+      fiscalEnd
+    );
+    // Covers the first half of the fiscal period and all of Q4 of the calendar
+    // year — a footprint scoped to the calendar year would see this as fully
+    // covered gapless data plus a stray record; scoped to the fiscal period it
+    // leaves Jan 1 - Jun 30 of the following year as the only gap.
+    BulkGapFillTestData.energyUse(
+      footprint.Id,
+      asset.Id,
+      BulkGapFillTestData.FUEL_ELECTRICITY,
+      fiscalStart,
+      Date.newInstance(YEAR, 12, 31),
+      184000
+    );
+
+    BulkGapFillRequest req = request(BulkGapFillConstants.METHOD_CURRENT_YEAR);
+    BulkGapFillJob__c job = BulkGapFillTestData.job(req);
+
+    run(req, job.Id);
+
+    List<BulkGapFillJobDetail__c> details = detailsFor(job.Id);
+    Assert.areEqual(1, details.size());
+    Assert.areEqual(
+      1,
+      details[0].GapsFound__c.intValue(),
+      'Exactly one gap: the second half of the fiscal period. Log: ' +
+      reload(job.Id).ErrorLog__c
+    );
+    Date gapStart = Date.newInstance(YEAR + 1, 1, 1);
+    Assert.areEqual(
+      gapStart.daysBetween(fiscalEnd) + 1,
+      details[0].GapDays__c.intValue(),
+      'Jan 1 through Jun 30 of the following year, inclusive'
+    );
+
+    List<SObject> generated = BulkGapFillTestData.energyUseUnder(
+      footprint.Id,
+      true
+    );
+    Assert.isFalse(generated.isEmpty());
+    for (SObject rec : generated) {
+      Date startDate = (Date) rec.get(
+        BulkGapFillConstants.FIELD_ENERGY_USE_START
+      );
+      Assert.isTrue(
+        startDate >= Date.newInstance(YEAR + 1, 1, 1),
+        'Generated records must fall inside the fiscal period, not the calendar year'
+      );
+    }
+  }
+
+  /**
+   * A footprint that already carries a generated record for the period must be
+   * left alone entirely when skipAlreadyFilled is on — even though a genuine,
+   * never-touched gap remains later in the same year. Coverage-based gap detection
+   * alone would happily fill that remaining gap; skipAlreadyFilled is a deliberate,
+   * coarser override on top of it.
+   */
+  @IsTest
+  static void skipAlreadyFilledLeavesAFootprintUntouchedWhenAGeneratedRecordOverlapsThePeriod() {
+    if (!BulkGapFillTestData.isNetZeroCloudAvailable()) {
+      return;
+    }
+    Date apr1 = Date.newInstance(YEAR, 4, 1);
+    SObject asset = BulkGapFillTestData.asset('HQ');
+    SObject footprint = BulkGapFillTestData.footprint(asset.Id, YEAR);
+    BulkGapFillTestData.energyUse(
+      footprint.Id,
+      asset.Id,
+      BulkGapFillTestData.FUEL_ELECTRICITY,
+      JAN_1,
+      Date.newInstance(YEAR, 3, 31),
+      90000
+    );
+    // Stands in for a prior bulk gap fill run. Jul 1 - Dec 31 is left as a
+    // genuine, never-touched gap.
+    BulkGapFillTestData.generatedEnergyUse(
+      footprint.Id,
+      asset.Id,
+      BulkGapFillTestData.FUEL_ELECTRICITY,
+      apr1,
+      JUN_30,
+      91000
+    );
+
+    BulkGapFillRequest req = request(BulkGapFillConstants.METHOD_CURRENT_YEAR);
+    req.skipAlreadyFilled = true;
+    BulkGapFillJob__c job = BulkGapFillTestData.job(req);
+
+    run(req, job.Id);
+
+    Assert.areEqual(
+      1,
+      BulkGapFillTestData.energyUseUnder(footprint.Id, true).size(),
+      'Only the pre-existing generated record — the remaining gap must not be filled'
+    );
+    List<BulkGapFillJobDetail__c> details = detailsFor(job.Id);
+    Assert.areEqual(1, details.size());
+    Assert.areEqual(BulkGapFillConstants.DETAIL_SKIPPED, details[0].Status__c);
+    Assert.isTrue(
+      details[0].ErrorMessage__c.contains('Already has a gap-filled record'),
+      'The audit trail must say why the footprint was left alone'
+    );
+    Assert.areEqual(
+      0,
+      reload(job.Id).GapsFound__c.intValue(),
+      'Detection never ran, so nothing was found'
+    );
+  }
+
+  /**
+   * The other side of the guard: with skipAlreadyFilled off, the same footprint is
+   * processed normally and the genuinely uncovered stretch is still filled.
+   */
+  @IsTest
+  static void skipAlreadyFilledFalseStillFillsAGenuineRemainingGap() {
+    if (!BulkGapFillTestData.isNetZeroCloudAvailable()) {
+      return;
+    }
+    Date apr1 = Date.newInstance(YEAR, 4, 1);
+    SObject asset = BulkGapFillTestData.asset('HQ');
+    SObject footprint = BulkGapFillTestData.footprint(asset.Id, YEAR);
+    BulkGapFillTestData.energyUse(
+      footprint.Id,
+      asset.Id,
+      BulkGapFillTestData.FUEL_ELECTRICITY,
+      JAN_1,
+      Date.newInstance(YEAR, 3, 31),
+      90000
+    );
+    BulkGapFillTestData.generatedEnergyUse(
+      footprint.Id,
+      asset.Id,
+      BulkGapFillTestData.FUEL_ELECTRICITY,
+      apr1,
+      JUN_30,
+      91000
+    );
+
+    BulkGapFillRequest req = request(BulkGapFillConstants.METHOD_CURRENT_YEAR);
+    req.skipAlreadyFilled = false;
+    BulkGapFillJob__c job = BulkGapFillTestData.job(req);
+
+    run(req, job.Id);
+
+    Assert.isTrue(
+      BulkGapFillTestData.energyUseUnder(footprint.Id, true).size() > 1,
+      'The remaining gap must still be filled when the flag is off. Log: ' +
+      reload(job.Id).ErrorLog__c
+    );
+    List<BulkGapFillJobDetail__c> details = detailsFor(job.Id);
+    Assert.areEqual(1, details.size());
+    Assert.areEqual(BulkGapFillConstants.DETAIL_FILLED, details[0].Status__c);
   }
 
   @IsTest

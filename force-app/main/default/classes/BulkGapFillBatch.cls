@@ -211,13 +211,28 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
       : asText(asset.get(BulkGapFillConstants.FIELD_ASSET_NAME));
     String method = request.methodFor(footprintId);
 
+    BulkGapFillService.DateRange period = resolvePeriod(footprint);
+
+    if (
+      request.skipAlreadyFilled == true &&
+      hasExistingGapFilledRecord(currentRecords, period)
+    ) {
+      BulkGapFillJobDetail__c skipped = baseDetail(footprint);
+      skipped.Status__c = BulkGapFillConstants.DETAIL_SKIPPED;
+      skipped.ErrorMessage__c =
+        'Already has a gap-filled record for this period; skipped because ' +
+        '"Skip footprints that already have gap-filled records" is enabled.';
+      details.add(skipped);
+      return;
+    }
+
     Set<String> fuelFilter = request.fuelTypes == null
       ? new Set<String>()
       : new Set<String>(request.fuelTypes);
 
     List<BulkGapFillService.FuelGapSet> gapSets = BulkGapFillService.analyzeFootprint(
-      request.effectivePeriodStart(),
-      request.effectivePeriodEnd(),
+      period.startDate,
+      period.endDate,
       currentRecords,
       fuelFilter
     );
@@ -292,6 +307,54 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
       }
       details.add(detail);
     }
+  }
+
+  /**
+   * Resolves the reporting period gaps are detected against: the footprint's own
+   * `StartDate`/`EndDate` when both are populated — a fiscal footprint's real period
+   * can start or end mid-calendar-year — otherwise the request's calendar-year span.
+   */
+  private BulkGapFillService.DateRange resolvePeriod(SObject footprint) {
+    Date periodStart = (Date) footprint.get(
+      BulkGapFillConstants.FIELD_FOOTPRINT_START
+    );
+    Date periodEnd = (Date) footprint.get(
+      BulkGapFillConstants.FIELD_FOOTPRINT_END
+    );
+    if (periodStart == null || periodEnd == null) {
+      periodStart = request.effectivePeriodStart();
+      periodEnd = request.effectivePeriodEnd();
+    }
+    return new BulkGapFillService.DateRange(periodStart, periodEnd);
+  }
+
+  /**
+   * True when any existing record — any fuel type — overlaps the reporting period
+   * and was generated rather than measured. Backs `skipAlreadyFilled`: coverage-based
+   * gap detection alone only stops the exact same dates from being refilled, so it
+   * would still fill a new gap that opens up in an already-touched footprint (a
+   * changed period, a deleted record, later real data with a hole of its own).
+   * This is a coarser, deliberate "leave it alone" guard for a footprint the batch
+   * — or a person — has already gap filled once.
+   */
+  @TestVisible
+  private static Boolean hasExistingGapFilledRecord(
+    List<BulkGapFillService.EnergyRecord> records,
+    BulkGapFillService.DateRange period
+  ) {
+    if (records == null) {
+      return false;
+    }
+    for (BulkGapFillService.EnergyRecord rec : records) {
+      if (
+        rec.isGapFilled == true &&
+        rec.hasUsableDates() &&
+        rec.toRange().overlaps(period)
+      ) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /** Assembles the inputs each fill method needs for this footprint and fuel type. */

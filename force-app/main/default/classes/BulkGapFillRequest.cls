@@ -27,8 +27,11 @@ public with sharing class BulkGapFillRequest {
   public Integer reportingYear { get; set; }
 
   /**
-   * Reporting period bounds. Left null for a calendar year, in which case the
-   * service derives Jan 1 - Dec 31 of reportingYear. Set both for a fiscal year.
+   * Reporting period bounds, used only as a fallback: `BulkGapFillBatch` gap fills
+   * each footprint against its own `StartDate`/`EndDate` first, and falls back to
+   * these only for a footprint missing either one. Left null for a calendar year,
+   * in which case the service derives Jan 1 - Dec 31 of reportingYear. Set both to
+   * override with a fiscal year of your own.
    */
   @AuraEnabled
   public Date periodStart { get; set; }
@@ -69,11 +72,19 @@ public with sharing class BulkGapFillRequest {
   @AuraEnabled
   public List<String> fuelTypes { get; set; }
 
-  /** Link orphan energy use records to their footprint before detecting gaps. */
+  /**
+   * Link orphan energy use records to their footprint before detecting gaps. Not
+   * currently surfaced in the LWC and not read by `BulkGapFillBatch` — accepted here
+   * only so an Apex or scheduled caller that sets it does not fail deserialization.
+   */
   @AuraEnabled
   public Boolean associateOrphans { get; set; }
 
-  /** Skip footprints that already have gap-filled records for the same period. */
+  /**
+   * Skip a footprint entirely — every fuel type on it — when any existing record
+   * was generated (`IsSystemGeneratedRecord`) and overlaps the reporting period.
+   * See `BulkGapFillBatch.hasExistingGapFilledRecord`.
+   */
   @AuraEnabled
   public Boolean skipAlreadyFilled { get; set; }
 
@@ -99,7 +110,8 @@ public with sharing class BulkGapFillRequest {
   }
 
   /**
-   * @description Effective first day of the reporting period.
+   * @description Effective first day of the fallback reporting period, used by
+   * `BulkGapFillBatch` only when a footprint carries no `StartDate` of its own.
    * @return `periodStart` when set, otherwise January 1 of `reportingYear`.
    */
   public Date effectivePeriodStart() {
@@ -109,7 +121,8 @@ public with sharing class BulkGapFillRequest {
   }
 
   /**
-   * @description Effective last day of the reporting period, inclusive.
+   * @description Effective last day of the fallback reporting period, inclusive,
+   * used by `BulkGapFillBatch` only when a footprint carries no `EndDate` of its own.
    * @return `periodEnd` when set, otherwise December 31 of `reportingYear`.
    */
   public Date effectivePeriodEnd() {

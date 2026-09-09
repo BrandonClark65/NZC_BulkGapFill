@@ -1990,9 +1990,16 @@
         <code>loadEnergyRecords</code> selects every energy use row on the
         footprint, including ones a previous run generated. So a repeat run over
         the same period generally finds the gaps already closed and writes
-        <span class="pill ok">No Gaps</span> rows. That idempotence is
-        incidental, not a guard — the intended guard,
-        <code>skipAlreadyFilled</code>, is not wired up (see §7).
+        <span class="pill ok">No Gaps</span> rows on its own, before
+        <code>skipAlreadyFilled</code> even enters into it. That coverage-level
+        idempotence only ever protects the exact same dates, though — a
+        footprint with a genuine, never-touched gap elsewhere in the period (a
+        changed reporting window, a deleted record, fresh real data with a hole
+        of its own) would still get that gap filled.
+        <code>skipAlreadyFilled</code> is the coarser, deliberate override on
+        top: any existing generated record overlapping the period takes the
+        whole footprint out of consideration, every fuel type, before detection
+        even runs (see §7).
       </p>
     </div>
   </section>
@@ -2532,10 +2539,16 @@
           </tr>
           <tr>
             <td><code>periodStart</code> / <code>periodEnd</code></td>
-            <td><code>effectivePeriodStart/End()</code></td>
             <td>
-              Null means Jan 1 – Dec 31 of the reporting year. Set both for a
-              fiscal year.
+              <code>effectivePeriodStart/End()</code>, via
+              <code>BulkGapFillBatch.resolvePeriod()</code>
+            </td>
+            <td>
+              Fallback only. Each footprint is gap filled against its own
+              <code>StartDate</code>/<code>EndDate</code> first; these are read
+              only when a footprint leaves either one blank. Null means Jan 1 –
+              Dec 31 of the reporting year. Set both to override with a fiscal
+              year of your own.
             </td>
           </tr>
           <tr>
@@ -2609,21 +2622,29 @@
             <td><code>associateOrphans</code></td>
             <td>Nothing</td>
             <td>
-              <strong>Not implemented.</strong> Surfaced as a checkbox and
-              carried on the request, but no matching logic runs and
-              <code>RecordsAssociated__c</code> stays at zero — including the
+              <strong>Not implemented, and no longer surfaced.</strong> Still on
+              <code>BulkGapFillRequest</code> so an Apex or scheduled caller
+              that sets it doesn't fail deserialization, but the Configure
+              checkbox has been removed and no matching logic runs —
+              <code>RecordsAssociated__c</code> stays at zero, including the
               tile the Monitor screen shows for it.
             </td>
           </tr>
           <tr>
             <td><code>skipAlreadyFilled</code></td>
-            <td>Nothing</td>
             <td>
-              <strong>Not enforced.</strong> Defaults to true but
-              <code>execute()</code> never reads it, so previously filled
-              footprints are re-scanned rather than skipped.
-              <code>EnergyRecord.isGapFilled</code> is already populated from
-              <code>IsSystemGeneratedRecord</code> for whenever it is wired up.
+              <code>processFootprint()</code> →
+              <code>hasExistingGapFilledRecord()</code>
+            </td>
+            <td>
+              Defaults to true. Before detection runs, checks every currently
+              loaded record — any fuel type — for one with
+              <code>IsSystemGeneratedRecord = true</code> whose period overlaps
+              the footprint's reporting period
+              (<code>EnergyRecord.isGapFilled</code>, read from that flag). If
+              one exists, the whole footprint is skipped — every fuel type, one
+              <em>Skipped</em> detail row, detection never runs — rather than
+              just the fuel type that was previously touched.
             </td>
           </tr>
         </tbody>

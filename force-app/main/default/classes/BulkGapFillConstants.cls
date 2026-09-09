@@ -127,6 +127,15 @@ public with sharing class BulkGapFillConstants {
     FIELD_REGIONAL_BEI_LOOKUP
   };
 
+  /**
+   * The footprint's own reporting period, which gap detection prefers over the
+   * calendar-year span derived from `ReportingYear` — a fiscal footprint's real
+   * period can start or end mid-year. Nillable: a footprint left with either date
+   * blank falls back to `BulkGapFillRequest.effectivePeriodStart/End()`.
+   */
+  public static final String FIELD_FOOTPRINT_START = 'StartDate';
+  public static final String FIELD_FOOTPRINT_END = 'EndDate';
+
   /** Relationship name for traversing a footprint to its stationary asset. */
   public static final String REL_FOOTPRINT_ASSET = 'StnryAssetEnvrSrc';
 
@@ -135,7 +144,9 @@ public with sharing class BulkGapFillConstants {
     FIELD_FOOTPRINT_ASSET,
     FIELD_FOOTPRINT_YEAR,
     FIELD_BEI_LOOKUP,
-    FIELD_REGIONAL_BEI_LOOKUP
+    FIELD_REGIONAL_BEI_LOOKUP,
+    FIELD_FOOTPRINT_START,
+    FIELD_FOOTPRINT_END
   };
 
   // ---- StnryAssetEnvrSrc fields -----------------------------------------

@@ -92,4 +92,38 @@ describe("c-bulk-gap-fill-wizard", () => {
     await launch("a01000000000099AAA");
     expect(monitor().jobId).toBe("a01000000000099AAA");
   });
+
+  it("returns to configure with the run's settings prefilled when promoting a dry run", async () => {
+    await launch();
+    monitor().dispatchEvent(new CustomEvent("runcomplete"));
+    await Promise.resolve();
+
+    const request = { reportingYear: 2025, isDryRun: true };
+    results().dispatchEvent(
+      new CustomEvent("runfull", { detail: { request } })
+    );
+    await Promise.resolve();
+
+    expect(configure()).not.toBeNull();
+    expect(configure().prefillRequest).toEqual(request);
+  });
+
+  it("does not carry a stale prefill into a run started from scratch", async () => {
+    await launch();
+    monitor().dispatchEvent(new CustomEvent("runcomplete"));
+    await Promise.resolve();
+    results().dispatchEvent(
+      new CustomEvent("runfull", {
+        detail: { request: { reportingYear: 2025 } }
+      })
+    );
+    await Promise.resolve();
+
+    // Launch again, then start a fresh run: the earlier prefill must not resurface.
+    await launch();
+    monitor().dispatchEvent(new CustomEvent("startover"));
+    await Promise.resolve();
+
+    expect(configure().prefillRequest).toBeUndefined();
+  });
 });

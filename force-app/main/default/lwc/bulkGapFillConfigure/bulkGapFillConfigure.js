@@ -1,4 +1,4 @@
-import { LightningElement, track, wire } from "lwc";
+import { LightningElement, api, track, wire } from "lwc";
 import { ShowToastEvent } from "lightning/platformShowToastEvent";
 import getConfigOptions from "@salesforce/apex/BulkGapFillController.getConfigOptions";
 import countFootprintsInScope from "@salesforce/apex/BulkGapFillController.countFootprintsInScope";
@@ -10,8 +10,16 @@ const METHOD_MANUAL = "Manual";
  * Step 1 — build a BulkGapFillRequest, preview its scope, and launch the batch.
  */
 export default class BulkGapFillConfigure extends LightningElement {
+  /**
+   * A previously launched request to seed the form from, shaped like the payload
+   * `buildRequest()` produces (or the deserialized `BulkGapFillJob__c.FilterCriteria__c`).
+   * Set when the user chooses to run a dry run's configuration for real.
+   */
+  @api prefillRequest;
+
   @track fillMethodOptions = [];
   @track assetTypeOptions = [];
+  @track fuelTypeOptions = [];
   @track reportingYearOptions = [];
   @track schemaProblems = [];
 
@@ -20,9 +28,8 @@ export default class BulkGapFillConfigure extends LightningElement {
   defaultFillMethod;
   manualDailyRate;
   selectedAssetTypes = [];
-  fuelTypesRaw = "";
+  selectedFuelTypes = [];
   isDryRun = false;
-  associateOrphans = false;
   skipAlreadyFilled = true;
   batchSize;
 
@@ -41,13 +48,22 @@ export default class BulkGapFillConfigure extends LightningElement {
         label: o.label,
         value: o.value
       }));
+      this.fuelTypeOptions = data.fuelTypes.map((o) => ({
+        label: o.label,
+        value: o.value
+      }));
       this.reportingYearOptions = data.reportingYears.map((y) => ({
         label: String(y),
         value: String(y)
       }));
-      this.reportingYear = String(data.defaultReportingYear);
       this.batchSize = data.defaultBatchSize;
       this.schemaProblems = data.schemaProblems || [];
+
+      if (this.prefillRequest) {
+        this.applyPrefill(this.prefillRequest, data);
+      } else {
+        this.reportingYear = String(data.defaultReportingYear);
+      }
     } else if (error) {
       this.toast(
         "Could not load configuration options",
@@ -55,6 +71,22 @@ export default class BulkGapFillConfigure extends LightningElement {
         "error"
       );
     }
+  }
+
+  /** Seeds every field from a prior request, forcing dry run off — the whole point
+   *  of promoting a preview is to actually create the records this time. */
+  applyPrefill(request, data) {
+    this.reportingYear =
+      request.reportingYear != null
+        ? String(request.reportingYear)
+        : String(data.defaultReportingYear);
+    this.defaultFillMethod = request.defaultFillMethod;
+    this.manualDailyRate = request.manualDailyRate;
+    this.selectedAssetTypes = request.assetTypes || [];
+    this.selectedFuelTypes = request.fuelTypes || [];
+    this.skipAlreadyFilled = request.skipAlreadyFilled !== false;
+    this.batchSize = request.batchSize || data.defaultBatchSize;
+    this.isDryRun = false;
   }
 
   get hasSchemaProblems() {
@@ -103,15 +135,11 @@ export default class BulkGapFillConfigure extends LightningElement {
   }
 
   handleFuelTypesChange(event) {
-    this.fuelTypesRaw = event.detail.value;
+    this.selectedFuelTypes = event.detail.value;
   }
 
   handleDryRunChange(event) {
     this.isDryRun = event.detail.checked;
-  }
-
-  handleAssociateOrphansChange(event) {
-    this.associateOrphans = event.detail.checked;
   }
 
   handleSkipFilledChange(event) {
@@ -171,19 +199,11 @@ export default class BulkGapFillConfigure extends LightningElement {
       carbonFootprintIds: [],
       stationaryAssetIds: [],
       assetTypes: this.selectedAssetTypes,
-      fuelTypes: this.parsedFuelTypes(),
+      fuelTypes: this.selectedFuelTypes,
       isDryRun: this.isDryRun,
-      associateOrphans: this.associateOrphans,
       skipAlreadyFilled: this.skipAlreadyFilled,
       batchSize: this.batchSize ? parseInt(this.batchSize, 10) : null
     };
-  }
-
-  parsedFuelTypes() {
-    return this.fuelTypesRaw
-      .split(",")
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0);
   }
 
   // ---- Helpers ----------------------------------------------------------

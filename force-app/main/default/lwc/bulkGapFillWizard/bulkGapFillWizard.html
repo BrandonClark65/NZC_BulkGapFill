@@ -25,6 +25,7 @@
     <div class="slds-var-p-around_medium">
       <template lwc:if={isConfigure}>
         <c-bulk-gap-fill-configure
+          prefill-request={prefillRequest}
           onlaunched={handleLaunched}
         ></c-bulk-gap-fill-configure>
       </template>
@@ -43,6 +44,7 @@
           job-id={jobId}
           onstartover={handleStartOver}
           onbacktomonitor={handleBackToMonitor}
+          onrunfull={handleRunFull}
         ></c-bulk-gap-fill-results>
       </template>
     </div>

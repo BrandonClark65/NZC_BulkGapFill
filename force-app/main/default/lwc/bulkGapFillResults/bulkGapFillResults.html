@@ -68,8 +68,16 @@
       onclick={handleBackToMonitor}
       class="slds-var-m-right_x-small"
     ></lightning-button>
+    <template lwc:if={canRunFull}>
+      <lightning-button
+        variant="brand"
+        label="Run Full Gap Fill"
+        title="Launch a live run with this preview's same configuration"
+        onclick={handleRunFull}
+        class="slds-var-m-right_x-small"
+      ></lightning-button>
+    </template>
     <lightning-button
-      variant="brand"
       label="New Run"
       onclick={handleStartOver}
     ></lightning-button>
