@@ -37,6 +37,10 @@ const OPTIONS = {
     { label: "Office", value: "Office" },
     { label: "Warehouse", value: "Warehouse" }
   ],
+  fuelTypes: [
+    { label: "Electricity", value: "Electricity" },
+    { label: "Natural Gas", value: "NaturalGas" }
+  ],
   reportingYears: [2026, 2025, 2024],
   defaultReportingYear: 2025,
   defaultBatchSize: 50,
@@ -117,13 +121,14 @@ describe("c-bulk-gap-fill-configure", () => {
     expect(buttonNamed("Launch Gap Fill").disabled).toBe(false);
   });
 
-  it("sends the year as a number and the fuel types as a trimmed list", async () => {
+  it("sends the year as a number and the selected fuel types", async () => {
     await emitOptions();
     await chooseMethod();
 
-    const fuelInput =
-      inputs().find((i) => i.name === "fuelTypes") || inputs()[0];
-    change(fuelInput, { value: " Electricity , NaturalGas ,, " });
+    const fuelTypesListbox = all("lightning-dual-listbox").find(
+      (el) => el.label === "Fuel Types"
+    );
+    change(fuelTypesListbox, { value: ["Electricity", "NaturalGas"] });
     await settle();
 
     launchRun.mockResolvedValue("a01000000000001AAA");
@@ -134,6 +139,15 @@ describe("c-bulk-gap-fill-configure", () => {
     expect(sent.reportingYear).toBe(2025);
     expect(sent.fuelTypes).toEqual(["Electricity", "NaturalGas"]);
     expect(sent.defaultFillMethod).toBe("Current Year Daily Average");
+  });
+
+  it("populates the fuel type options from the server picklist", async () => {
+    await emitOptions();
+
+    const fuelTypesListbox = all("lightning-dual-listbox").find(
+      (el) => el.label === "Fuel Types"
+    );
+    expect(fuelTypesListbox.options).toEqual(OPTIONS.fuelTypes);
   });
 
   it("reports the launched job upward so the wizard can advance", async () => {
@@ -211,6 +225,48 @@ describe("c-bulk-gap-fill-configure", () => {
     await settle();
 
     expect(buttonNamed("Run Preview")).toBeDefined();
+  });
+
+  it("seeds every field from a prefilled request and forces dry run off", async () => {
+    element.prefillRequest = {
+      reportingYear: 2024,
+      defaultFillMethod: "Manual",
+      manualDailyRate: 12.5,
+      assetTypes: ["Warehouse"],
+      fuelTypes: ["NaturalGas"],
+      skipAlreadyFilled: false,
+      batchSize: 25,
+      isDryRun: true
+    };
+    await emitOptions();
+
+    const [year, method] = comboboxes();
+    expect(year.value).toBe("2024");
+    expect(method.value).toBe("Manual");
+
+    const checkboxes = inputs().filter((i) => i.type === "checkbox");
+    const dryRun = checkboxes[0];
+    const skipAlreadyFilled = checkboxes[1];
+    expect(dryRun.checked).toBe(false);
+    expect(skipAlreadyFilled.checked).toBe(false);
+
+    const assetTypesListbox = all("lightning-dual-listbox").find(
+      (el) => el.label === "Asset Types"
+    );
+    const fuelTypesListbox = all("lightning-dual-listbox").find(
+      (el) => el.label === "Fuel Types"
+    );
+    expect(assetTypesListbox.value).toEqual(["Warehouse"]);
+    expect(fuelTypesListbox.value).toEqual(["NaturalGas"]);
+
+    launchRun.mockResolvedValue("a01000000000001AAA");
+    buttonNamed("Launch Gap Fill").click();
+    await settle();
+
+    const sent = JSON.parse(launchRun.mock.calls[0][0].requestJson);
+    expect(sent.isDryRun).toBe(false);
+    expect(sent.batchSize).toBe(25);
+    expect(sent.manualDailyRate).toBe(12.5);
   });
 
   it("only sends a manual rate when the method is Manual", async () => {

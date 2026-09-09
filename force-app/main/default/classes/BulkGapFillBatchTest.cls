@@ -102,6 +102,83 @@ private class BulkGapFillBatchTest {
     Assert.isNotNull(BulkGapFillConstants.validateSchema());
   }
 
+  // ---- skipAlreadyFilled guard -------------------------------------------
+  // Pure interval logic over plain EnergyRecord/DateRange wrappers, so these hold
+  // in any org — no NZC data needed. A run against real records lives in
+  // BulkGapFillBatchRunTest.
+
+  private static BulkGapFillService.EnergyRecord record(
+    Date startDate,
+    Date endDate,
+    Boolean isGapFilled
+  ) {
+    BulkGapFillService.EnergyRecord rec = new BulkGapFillService.EnergyRecord();
+    rec.startDate = startDate;
+    rec.endDate = endDate;
+    rec.isGapFilled = isGapFilled;
+    return rec;
+  }
+
+  private static BulkGapFillService.DateRange YEAR_2025 = new BulkGapFillService.DateRange(
+    Date.newInstance(2025, 1, 1),
+    Date.newInstance(2025, 12, 31)
+  );
+
+  @IsTest
+  static void noExistingRecordsMeansNothingToSkip() {
+    Assert.isFalse(
+      BulkGapFillBatch.hasExistingGapFilledRecord(
+        new List<BulkGapFillService.EnergyRecord>(),
+        YEAR_2025
+      )
+    );
+    Assert.isFalse(
+      BulkGapFillBatch.hasExistingGapFilledRecord(null, YEAR_2025)
+    );
+  }
+
+  @IsTest
+  static void measuredRecordsDoNotCountAsAlreadyFilled() {
+    List<BulkGapFillService.EnergyRecord> records = new List<BulkGapFillService.EnergyRecord>{
+      record(Date.newInstance(2025, 1, 1), Date.newInstance(2025, 6, 30), false)
+    };
+    Assert.isFalse(
+      BulkGapFillBatch.hasExistingGapFilledRecord(records, YEAR_2025),
+      'A measured record is not evidence of a prior gap fill'
+    );
+  }
+
+  @IsTest
+  static void aGeneratedRecordOverlappingThePeriodCountsAsAlreadyFilled() {
+    List<BulkGapFillService.EnergyRecord> records = new List<BulkGapFillService.EnergyRecord>{
+      record(Date.newInstance(2025, 4, 1), Date.newInstance(2025, 6, 30), true)
+    };
+    Assert.isTrue(
+      BulkGapFillBatch.hasExistingGapFilledRecord(records, YEAR_2025)
+    );
+  }
+
+  @IsTest
+  static void aGeneratedRecordOutsideThePeriodDoesNotCount() {
+    List<BulkGapFillService.EnergyRecord> records = new List<BulkGapFillService.EnergyRecord>{
+      record(Date.newInstance(2024, 1, 1), Date.newInstance(2024, 12, 31), true)
+    };
+    Assert.isFalse(
+      BulkGapFillBatch.hasExistingGapFilledRecord(records, YEAR_2025),
+      'A generated record for a different period is not this period being filled'
+    );
+  }
+
+  @IsTest
+  static void aGeneratedRecordWithUnusableDatesIsIgnored() {
+    List<BulkGapFillService.EnergyRecord> records = new List<BulkGapFillService.EnergyRecord>{
+      record(null, Date.newInstance(2025, 6, 30), true)
+    };
+    Assert.isFalse(
+      BulkGapFillBatch.hasExistingGapFilledRecord(records, YEAR_2025)
+    );
+  }
+
   // ---- Detail reconciliation --------------------------------------------
 
   private static BulkGapFillJobDetail__c filledDetail(

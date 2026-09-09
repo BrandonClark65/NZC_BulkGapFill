@@ -20,6 +20,8 @@ public with sharing class BulkGapFillController {
     @AuraEnabled
     public List<Option> assetTypes = new List<Option>();
     @AuraEnabled
+    public List<Option> fuelTypes = new List<Option>();
+    @AuraEnabled
     public List<Integer> reportingYears = new List<Integer>();
     @AuraEnabled
     public Integer defaultReportingYear;
@@ -121,6 +123,10 @@ public with sharing class BulkGapFillController {
       options.assetTypes = describePicklist(
         BulkGapFillConstants.OBJ_ASSET,
         BulkGapFillConstants.FIELD_ASSET_TYPE
+      );
+      options.fuelTypes = describePicklist(
+        BulkGapFillConstants.OBJ_ENERGY_USE,
+        BulkGapFillConstants.FIELD_ENERGY_USE_FUEL_TYPE
       );
       options.schemaProblems = BulkGapFillConstants.validateSchema();
       return options;
@@ -265,6 +271,7 @@ public with sharing class BulkGapFillController {
           DefaultFillMethod__c,
           IsDryRun__c,
           AsyncApexJobId__c,
+          FilterCriteria__c,
           FootprintsInScope__c,
           FootprintsProcessed__c,
           GapsFound__c,

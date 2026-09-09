@@ -17,6 +17,9 @@ export default class BulkGapFillWizard extends LightningElement {
   /** Request config carried forward so Results can label the run. */
   @track lastRequest;
 
+  /** Request config Configure should seed its form from, or undefined for a blank form. */
+  @track prefillRequest;
+
   get isConfigure() {
     return this.currentStep === STEP_CONFIGURE;
   }
@@ -33,7 +36,20 @@ export default class BulkGapFillWizard extends LightningElement {
   handleLaunched(event) {
     this.jobId = event.detail.jobId;
     this.lastRequest = event.detail.request;
+    this.prefillRequest = undefined;
     this.currentStep = STEP_MONITOR;
+  }
+
+  /**
+   * Fired by bulkGapFillResults when the user promotes a dry run to a full run.
+   * Sends the same configuration back to Configure, pre-filled and with dry run
+   * turned off, rather than making them re-enter every filter.
+   */
+  handleRunFull(event) {
+    this.jobId = undefined;
+    this.lastRequest = undefined;
+    this.prefillRequest = event.detail.request;
+    this.currentStep = STEP_CONFIGURE;
   }
 
   /** Fired by bulkGapFillMonitor when the batch reaches a terminal state. */
@@ -49,6 +65,7 @@ export default class BulkGapFillWizard extends LightningElement {
   handleStartOver() {
     this.jobId = undefined;
     this.lastRequest = undefined;
+    this.prefillRequest = undefined;
     this.currentStep = STEP_CONFIGURE;
   }
 

@@ -107,9 +107,29 @@ public class BulkGapFillTestData {
    * @param assetId Parent stationary asset.
    * @param reportingYear The year. Bound as text, since `ReportingYear` is a string
    *        column on the Net Zero Cloud objects.
-   * @return The inserted footprint.
+   * @return The inserted footprint, with no `StartDate`/`EndDate` set — gap
+   *         detection for it falls back to the calendar year.
    */
   public static SObject footprint(Id assetId, Integer reportingYear) {
+    return footprint(assetId, reportingYear, null, null);
+  }
+
+  /**
+   * @description Inserts a carbon footprint with an explicit reporting period, for
+   * tests of the fiscal-period gap detection path.
+   * @param assetId Parent stationary asset.
+   * @param reportingYear The year. Bound as text, since `ReportingYear` is a string
+   *        column on the Net Zero Cloud objects.
+   * @param startDate The footprint's own period start, or null to leave it unset.
+   * @param endDate The footprint's own period end, or null to leave it unset.
+   * @return The inserted footprint.
+   */
+  public static SObject footprint(
+    Id assetId,
+    Integer reportingYear,
+    Date startDate,
+    Date endDate
+  ) {
     SObject rec = blank(BulkGapFillConstants.OBJ_FOOTPRINT);
     rec.put('Name', 'CFP ' + reportingYear + ' ' + assetId);
     rec.put(BulkGapFillConstants.FIELD_FOOTPRINT_ASSET, assetId);
@@ -117,6 +137,12 @@ public class BulkGapFillTestData {
       BulkGapFillConstants.FIELD_FOOTPRINT_YEAR,
       BulkGapFillConstants.reportingYearBind(reportingYear)
     );
+    if (startDate != null) {
+      rec.put(BulkGapFillConstants.FIELD_FOOTPRINT_START, startDate);
+    }
+    if (endDate != null) {
+      rec.put(BulkGapFillConstants.FIELD_FOOTPRINT_END, endDate);
+    }
     insert rec;
     return rec;
   }
@@ -156,6 +182,42 @@ public class BulkGapFillTestData {
   }
 
   /**
+   * @description Inserts an energy use record already marked as gap filled, as a
+   * prior bulk gap fill run would have left it — for tests of `skipAlreadyFilled`.
+   * @param footprintId Parent carbon footprint.
+   * @param assetId Parent stationary asset. Required on insert.
+   * @param fuelType A `FuelType` API value. Required on insert.
+   * @param startDate Period start.
+   * @param endDate Period end.
+   * @param consumption Fuel consumed over the period.
+   * @return The inserted energy use record.
+   */
+  public static SObject generatedEnergyUse(
+    Id footprintId,
+    Id assetId,
+    String fuelType,
+    Date startDate,
+    Date endDate,
+    Decimal consumption
+  ) {
+    SObject rec = blank(BulkGapFillConstants.OBJ_ENERGY_USE);
+    rec.put(
+      BulkGapFillConstants.FIELD_ENERGY_USE_NAME,
+      'Gap Fill ' + fuelType + ' ' + startDate
+    );
+    rec.put(BulkGapFillConstants.FIELD_ENERGY_USE_ASSET, assetId);
+    rec.put(BulkGapFillConstants.FIELD_ENERGY_USE_FOOTPRINT, footprintId);
+    rec.put(BulkGapFillConstants.FIELD_ENERGY_USE_FUEL_TYPE, fuelType);
+    rec.put(BulkGapFillConstants.FIELD_ENERGY_USE_START, startDate);
+    rec.put(BulkGapFillConstants.FIELD_ENERGY_USE_END, endDate);
+    rec.put(BulkGapFillConstants.FIELD_ENERGY_USE_CONSUMPTION, consumption);
+    rec.put(BulkGapFillConstants.FIELD_ENERGY_USE_CONSUMPTION_UNIT, UNIT_KWH);
+    rec.put(BulkGapFillConstants.FIELD_ENERGY_USE_IS_SYSTEM_GENERATED, true);
+    insert rec;
+    return rec;
+  }
+
+  /**
    * @description Inserts a benchmark header.
    * @param name Benchmark name.
    * @param regional True for the Regional record type, false for the custom one.
@@ -173,8 +235,63 @@ public class BulkGapFillTestData {
     if (rtId != null) {
       rec.put('RecordTypeId', rtId);
     }
+    // None of these four are schema-required — they're enforced by validation
+    // rules scoped to the custom (non-regional) record type in some orgs, not by
+    // field-level requiredness, so setting them is defensive rather than guessing.
+    // The fixtures never read any of these values back.
+    Schema.DescribeSObjectResult beiDescribe = Schema.getGlobalDescribe()
+      .get(BulkGapFillConstants.OBJ_BEI)
+      .getDescribe();
+    Map<String, Schema.SObjectField> beiFields = beiDescribe.fields.getMap();
+    if (beiFields.containsKey('buildingsizecategoryid')) {
+      Id sizeCategoryId = anyBuildingSizeCategoryId();
+      if (sizeCategoryId != null) {
+        rec.put('BuildingSizeCategoryId', sizeCategoryId);
+      }
+    }
+    if (beiFields.containsKey('averagingwindowstartdate')) {
+      rec.put('AveragingWindowStartDate', Date.newInstance(2020, 1, 1));
+    }
+    if (beiFields.containsKey('averagingwindowenddate')) {
+      rec.put('AveragingWindowEndDate', Date.newInstance(2022, 12, 31));
+    }
+    if (beiFields.containsKey('country')) {
+      rec.put('Country', 'United States');
+    }
     insert rec;
     return rec;
+  }
+
+  private static Id cachedBuildingSizeCategoryId;
+  private static Boolean buildingSizeCategoryLookedUp = false;
+
+  /**
+   * A `BldgSizeCategory` record, inserted once per test and cached. `BldgSizeCategory`
+   * is a standard Net Zero Cloud reference object (Small/Medium/Large/Extra Large
+   * ship with every org), but ordinary Apex test data isolation still applies to it —
+   * a query for the org's seeded rows sees none inside `@IsTest` context without
+   * `SeeAllData=true`. Inserting our own row, which the fixture is permitted to do,
+   * sidesteps that rather than relying on a data visibility exemption this object
+   * doesn't get. Returns null when the object is absent, in which case the caller
+   * leaves the lookup unset rather than failing the fixture outright.
+   */
+  private static Id anyBuildingSizeCategoryId() {
+    if (buildingSizeCategoryLookedUp) {
+      return cachedBuildingSizeCategoryId;
+    }
+    buildingSizeCategoryLookedUp = true;
+    if (Schema.getGlobalDescribe().get('BldgSizeCategory') == null) {
+      return null;
+    }
+    SObject rec = Schema.getGlobalDescribe()
+      .get('BldgSizeCategory')
+      .newSObject();
+    rec.put('Name', 'Bulk Gap Fill Test Category');
+    rec.put('MinimumSize', 0);
+    rec.put('MaximumSize', 999999);
+    insert rec;
+    cachedBuildingSizeCategoryId = rec.Id;
+    return cachedBuildingSizeCategoryId;
   }
 
   /**

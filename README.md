@@ -89,6 +89,14 @@ When a method's prerequisites are missing, the service throws `FillNotViableExce
 and the batch records a **Skipped** detail row with the reason. It does not silently
 substitute another method or write a wrong estimate.
 
+### Reporting period
+
+Each footprint is gap filled against its own `StartDate`/`EndDate` — a fiscal
+footprint's real period can start or end mid-calendar-year. A footprint left with
+either one blank falls back to `BulkGapFillRequest.effectivePeriodStart/End()`: the
+request's `periodStart`/`periodEnd` override when set, otherwise Jan 1 – Dec 31 of
+`reportingYear`.
+
 ### Date convention
 
 All ranges are **inclusive of both endpoints**: Jan 1 – Jan 31 is 31 days, and a bill
@@ -142,7 +150,10 @@ An empty result means the org is ready. Anything listed is a name to correct in
 
 Start with **Dry run** checked. It performs full gap detection and writes the complete
 per-asset audit trail without creating a single energy use record, which is the cheapest
-way to confirm the detected gaps and estimated values look right for your data.
+way to confirm the detected gaps and estimated values look right for your data. Once
+you've reviewed a preview, the Results page offers a **Run Full Gap Fill** button that
+returns to Configure with the same year, method, and filters already filled in and dry
+run turned off, so committing a reviewed preview doesn't mean re-entering it.
 
 ---
 
@@ -156,7 +167,7 @@ npm run lint
 npm run docs
 ```
 
-`npm test` runs the LWC Jest suite: 33 specs across the four components, covering
+`npm test` runs the LWC Jest suite: 40 specs across the four components, covering
 step transitions, the request payload the Configure page builds, the monitor's
 polling and auto-advance behaviour, and the Results CSV escaping.
 
@@ -220,15 +231,20 @@ Known gaps in this implementation, so nobody discovers them the hard way:
   for the fuel type being filled, the fill resolves to a **Skipped** detail row rather
   than borrowing another fuel type's figure — safe, but easy to miss across a large run.
   Dry-run first and check the detail rows.
-- **Orphan association is not implemented.** `associateOrphans` is accepted on the
-  request and surfaced in the UI, but no matching logic runs; `RecordsAssociated__c`
-  stays at zero. The matching rule is org-specific.
-- **`skipAlreadyFilled` is not enforced.** It is carried on the request but not yet
-  applied in `execute()`, so re-running against the same period will create duplicate
-  gap-filled records. Use dry run and check the detail rows before a repeat run.
-  `EnergyRecord.isGapFilled` is already populated for when it is implemented, from
-  `IsSystemGeneratedRecord` — the flag the native process sets, so records filled by
-  either route count.
+- **Orphan association is not implemented.** `associateOrphans` still exists on
+  `BulkGapFillRequest` so an Apex or scheduled caller that sets it doesn't fail
+  deserialization, but it is no longer surfaced in the UI, no matching logic runs, and
+  `RecordsAssociated__c` stays at zero. The matching rule is org-specific.
+- **`skipAlreadyFilled` skips a whole footprint, not a single fuel type.** When any
+  existing record on a footprint was generated (`IsSystemGeneratedRecord`) and overlaps
+  the reporting period, the whole footprint — every fuel type — is left alone, even if a
+  genuine, never-touched gap exists elsewhere in the same period. This is deliberately
+  coarser than the coverage-based gap detection underneath it: that logic alone already
+  treats a previously generated record as coverage and won't refill the exact same dates,
+  but it would still fill a _new_ gap that opens up later (a changed reporting period, a
+  deleted record, fresh real data with a hole of its own). `skipAlreadyFilled` is the
+  override for "leave this one alone, I've already handled it" regardless. See
+  `BulkGapFillBatch.hasExistingGapFilledRecord`.
 - **Two failure paths are deliberately untested.** The chunk-level `catch` in
   `execute()` and the partial-failure branch of `Database.insert` both need DML to
   fail against real NZC objects. Forcing that would distort the fixtures more than

@@ -81,6 +81,10 @@ export default class BulkGapFillResults extends LightningElement {
     return !this.hasDetails;
   }
 
+  get canRunFull() {
+    return this.job?.IsDryRun__c === true;
+  }
+
   async loadAll() {
     this.isLoading = true;
     try {
@@ -140,6 +144,30 @@ export default class BulkGapFillResults extends LightningElement {
 
   handleBackToMonitor() {
     this.dispatchEvent(new CustomEvent("backtomonitor"));
+  }
+
+  /**
+   * Sends this run's own configuration back to the Configure step so the user can
+   * launch the same scope and method for real, without re-entering it. Read from
+   * the job's stored FilterCriteria__c rather than anything held in memory, so this
+   * works even if the user navigated here directly rather than through the wizard.
+   */
+  handleRunFull() {
+    let request;
+    try {
+      request = JSON.parse(this.job?.FilterCriteria__c);
+    } catch {
+      request = null;
+    }
+    if (!request) {
+      this.toast(
+        "Could not reuse this run's configuration",
+        "The original settings for this run could not be read back.",
+        "error"
+      );
+      return;
+    }
+    this.dispatchEvent(new CustomEvent("runfull", { detail: { request } }));
   }
 
   /**
