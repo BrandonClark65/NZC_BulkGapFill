@@ -124,11 +124,11 @@ private class BulkGapFillBatchRunTest {
     // record.
     Assert.areEqual(
       'HQ Gap Fill ' +
-      BulkGapFillTestData.FUEL_ELECTRICITY +
-      ' ' +
-      String.valueOf(JUN_30.addDays(1)) +
-      ' to ' +
-      String.valueOf(DEC_31),
+        BulkGapFillTestData.FUEL_ELECTRICITY +
+        ' ' +
+        String.valueOf(JUN_30.addDays(1)) +
+        ' to ' +
+        String.valueOf(DEC_31),
       filled.get(BulkGapFillConstants.FIELD_ENERGY_USE_NAME),
       'Generated name carries the asset name, the gap fill marker and the range'
     );
@@ -300,6 +300,139 @@ private class BulkGapFillBatchRunTest {
     Assert.isNotNull(
       details[0].ErrorMessage__c,
       'The row must say why it was skipped'
+    );
+  }
+
+  /**
+   * With the fallback flag on, a footprint with no current-year records for a
+   * fuel type falls back to Regional BEI instead of being skipped, and the
+   * generated records are stamped and audited as Regional BEI — not the
+   * requested Current Year Daily Average.
+   */
+  @IsTest
+  static void currentYearAverageFallsBackToRegionalBeiWhenNoCurrentYearData() {
+    if (!BulkGapFillTestData.isNetZeroCloudAvailable()) {
+      return;
+    }
+    SObject benchmark = BulkGapFillTestData.benchmark('CBECS Office', true);
+    BulkGapFillTestData.benchmarkValue(
+      benchmark.Id,
+      BulkGapFillTestData.FUEL_ELECTRICITY,
+      200
+    );
+
+    SObject asset = BulkGapFillTestData.asset('HQ');
+    SObject footprint = BulkGapFillTestData.footprint(asset.Id, YEAR);
+    footprint.put(BulkGapFillConstants.FIELD_REGIONAL_BEI_LOOKUP, benchmark.Id);
+    update footprint;
+
+    // No current-year energy use records at all, so Current Year Daily Average
+    // has nothing to average — the whole reporting year is one gap.
+
+    BulkGapFillRequest req = request(BulkGapFillConstants.METHOD_CURRENT_YEAR);
+    req.fallbackToRegionalBei = true;
+    BulkGapFillJob__c job = BulkGapFillTestData.job(req);
+
+    run(req, job.Id);
+
+    List<SObject> generated = BulkGapFillTestData.energyUseUnder(
+      footprint.Id,
+      true
+    );
+    Assert.isFalse(
+      generated.isEmpty(),
+      'The Regional BEI benchmark makes the fallback viable. Log: ' +
+      reload(job.Id).ErrorLog__c
+    );
+    Assert.areEqual(
+      BulkGapFillConstants.gapFillMethodPicklistValue(
+        BulkGapFillConstants.METHOD_REGIONAL_BEI
+      ),
+      generated[0].get(BulkGapFillConstants.FIELD_ENERGY_USE_FILL_METHOD),
+      'Generated records must be stamped with the method actually used, not the requested one'
+    );
+
+    List<BulkGapFillJobDetail__c> details = [
+      SELECT Status__c, FillMethodUsed__c
+      FROM BulkGapFillJobDetail__c
+      WHERE BulkGapFillJob__c = :job.Id
+    ];
+    Assert.areEqual(1, details.size());
+    Assert.areEqual(BulkGapFillConstants.DETAIL_FILLED, details[0].Status__c);
+    Assert.areEqual(
+      BulkGapFillConstants.METHOD_REGIONAL_BEI,
+      details[0].FillMethodUsed__c,
+      'The audit trail must reflect the fallback, not the requested method'
+    );
+  }
+
+  /**
+   * The flag defaults to off: a footprint with no current-year data must still be
+   * skipped exactly as before, even with a viable Regional BEI benchmark sitting
+   * right there on the footprint.
+   */
+  @IsTest
+  static void currentYearAverageWithFallbackOffStillSkipsWhenNoData() {
+    if (!BulkGapFillTestData.isNetZeroCloudAvailable()) {
+      return;
+    }
+    SObject benchmark = BulkGapFillTestData.benchmark('CBECS Office', true);
+    BulkGapFillTestData.benchmarkValue(
+      benchmark.Id,
+      BulkGapFillTestData.FUEL_ELECTRICITY,
+      200
+    );
+
+    SObject asset = BulkGapFillTestData.asset('HQ');
+    SObject footprint = BulkGapFillTestData.footprint(asset.Id, YEAR);
+    footprint.put(BulkGapFillConstants.FIELD_REGIONAL_BEI_LOOKUP, benchmark.Id);
+    update footprint;
+
+    BulkGapFillRequest req = request(BulkGapFillConstants.METHOD_CURRENT_YEAR);
+    req.fallbackToRegionalBei = false;
+    BulkGapFillJob__c job = BulkGapFillTestData.job(req);
+
+    run(req, job.Id);
+
+    Assert.isTrue(
+      BulkGapFillTestData.energyUseUnder(footprint.Id, true).isEmpty(),
+      'No fallback means no defensible estimate, same as before this feature'
+    );
+    List<BulkGapFillJobDetail__c> details = detailsFor(job.Id);
+    Assert.areEqual(1, details.size());
+    Assert.areEqual(BulkGapFillConstants.DETAIL_SKIPPED, details[0].Status__c);
+  }
+
+  /**
+   * With the flag on but no Regional BEI benchmark to fall back to either, the
+   * footprint is still skipped, and the audit trail says both attempts failed.
+   */
+  @IsTest
+  static void currentYearAverageFallbackSkipsWhenNoRegionalBenchmarkExists() {
+    if (!BulkGapFillTestData.isNetZeroCloudAvailable()) {
+      return;
+    }
+    SObject asset = BulkGapFillTestData.asset('HQ');
+    SObject footprint = BulkGapFillTestData.footprint(asset.Id, YEAR);
+    // No current-year data and no Regional BEI lookup on the footprint.
+
+    BulkGapFillRequest req = request(BulkGapFillConstants.METHOD_CURRENT_YEAR);
+    req.fallbackToRegionalBei = true;
+    BulkGapFillJob__c job = BulkGapFillTestData.job(req);
+
+    run(req, job.Id);
+
+    Assert.isTrue(
+      BulkGapFillTestData.energyUseUnder(footprint.Id, true).isEmpty(),
+      'Neither method is viable, so nothing should be created'
+    );
+    List<BulkGapFillJobDetail__c> details = detailsFor(job.Id);
+    Assert.areEqual(1, details.size());
+    Assert.areEqual(BulkGapFillConstants.DETAIL_SKIPPED, details[0].Status__c);
+    Assert.isTrue(
+      details[0]
+        .ErrorMessage__c.contains('Fallback to Regional BEI also failed'),
+      'The audit trail must say both the original and the fallback failed'
     );
   }
 
