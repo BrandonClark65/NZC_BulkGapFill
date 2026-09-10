@@ -5,6 +5,7 @@ import countFootprintsInScope from "@salesforce/apex/BulkGapFillController.count
 import launchRun from "@salesforce/apex/BulkGapFillController.launchRun";
 
 const METHOD_MANUAL = "Manual";
+const METHOD_CURRENT_YEAR = "Current Year Daily Average";
 
 /**
  * Step 1 — build a BulkGapFillRequest, preview its scope, and launch the batch.
@@ -31,6 +32,7 @@ export default class BulkGapFillConfigure extends LightningElement {
   selectedFuelTypes = [];
   isDryRun = false;
   skipAlreadyFilled = true;
+  fallbackToRegionalBei = false;
   batchSize;
 
   scopeCount;
@@ -85,6 +87,7 @@ export default class BulkGapFillConfigure extends LightningElement {
     this.selectedAssetTypes = request.assetTypes || [];
     this.selectedFuelTypes = request.fuelTypes || [];
     this.skipAlreadyFilled = request.skipAlreadyFilled !== false;
+    this.fallbackToRegionalBei = request.fallbackToRegionalBei === true;
     this.batchSize = request.batchSize || data.defaultBatchSize;
     this.isDryRun = false;
   }
@@ -95,6 +98,10 @@ export default class BulkGapFillConfigure extends LightningElement {
 
   get isManualMethod() {
     return this.defaultFillMethod === METHOD_MANUAL;
+  }
+
+  get isCurrentYearMethod() {
+    return this.defaultFillMethod === METHOD_CURRENT_YEAR;
   }
 
   get launchDisabled() {
@@ -144,6 +151,10 @@ export default class BulkGapFillConfigure extends LightningElement {
 
   handleSkipFilledChange(event) {
     this.skipAlreadyFilled = event.detail.checked;
+  }
+
+  handleFallbackToRegionalBeiChange(event) {
+    this.fallbackToRegionalBei = event.detail.checked;
   }
 
   handleBatchSizeChange(event) {
@@ -202,6 +213,7 @@ export default class BulkGapFillConfigure extends LightningElement {
       fuelTypes: this.selectedFuelTypes,
       isDryRun: this.isDryRun,
       skipAlreadyFilled: this.skipAlreadyFilled,
+      fallbackToRegionalBei: this.fallbackToRegionalBei,
       batchSize: this.batchSize ? parseInt(this.batchSize, 10) : null
     };
   }

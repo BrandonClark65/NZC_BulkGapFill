@@ -240,18 +240,19 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
     for (BulkGapFillService.FuelGapSet gapSet : gapSets) {
       BulkGapFillJobDetail__c detail = baseDetail(footprint);
       detail.FuelType__c = gapSet.fuelType;
-      detail.FillMethodUsed__c = method;
       detail.GapsFound__c = gapSet.gaps.size();
       detail.GapDays__c = gapSet.totalGapDays;
       detail.EnergyFilledUnit__c = gapSet.consumptionUnit;
 
       if (gapSet.gaps.isEmpty()) {
+        detail.FillMethodUsed__c = method;
         detail.Status__c = BulkGapFillConstants.DETAIL_NO_GAPS;
         details.add(detail);
         continue;
       }
       gapsFound += gapSet.gaps.size();
 
+      String methodUsed = method;
       Decimal dailyRate;
       try {
         dailyRate = BulkGapFillService.resolveDailyRate(
@@ -264,12 +265,40 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
           )
         );
       } catch (BulkGapFillService.FillNotViableException e) {
-        detail.Status__c = BulkGapFillConstants.DETAIL_SKIPPED;
-        detail.ErrorMessage__c = e.getMessage();
-        details.add(detail);
-        continue;
+        Boolean canFallBackToRegionalBei =
+          request.fallbackToRegionalBei == true &&
+          BulkGapFillConstants.METHOD_CURRENT_YEAR.equals(method);
+        if (!canFallBackToRegionalBei) {
+          detail.FillMethodUsed__c = method;
+          detail.Status__c = BulkGapFillConstants.DETAIL_SKIPPED;
+          detail.ErrorMessage__c = e.getMessage();
+          details.add(detail);
+          continue;
+        }
+        try {
+          methodUsed = BulkGapFillConstants.METHOD_REGIONAL_BEI;
+          dailyRate = BulkGapFillService.resolveDailyRate(
+            buildContext(
+              footprint,
+              gapSet.fuelType,
+              methodUsed,
+              currentRecords,
+              priorRecords
+            )
+          );
+        } catch (BulkGapFillService.FillNotViableException fallbackException) {
+          detail.FillMethodUsed__c = method;
+          detail.Status__c = BulkGapFillConstants.DETAIL_SKIPPED;
+          detail.ErrorMessage__c =
+            e.getMessage() +
+            ' Fallback to Regional BEI also failed: ' +
+            fallbackException.getMessage();
+          details.add(detail);
+          continue;
+        }
       }
 
+      detail.FillMethodUsed__c = methodUsed;
       Decimal energyFilled = 0;
       for (BulkGapFillService.DateRange gap : gapSet.gaps) {
         Decimal value = BulkGapFillService.valueForGap(dailyRate, gap);
@@ -284,7 +313,7 @@ public with sharing class BulkGapFillBatch implements Database.Batchable<SObject
                 gapSet,
                 gap,
                 value,
-                method
+                methodUsed
               ),
               detail,
               value

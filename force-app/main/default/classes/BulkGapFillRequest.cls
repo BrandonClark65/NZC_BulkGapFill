@@ -51,6 +51,17 @@ public with sharing class BulkGapFillRequest {
   @AuraEnabled
   public Decimal manualDailyRate { get; set; }
 
+  /**
+   * When true, a footprint/fuel type combination that resolves to Current Year
+   * Daily Average but carries no usable current-year records falls back to
+   * Regional Building Energy Intensity instead of being skipped. Only Current
+   * Year Daily Average triggers the fallback; every other method's viability
+   * check is unaffected. Defaults to false, which preserves the original
+   * skip-on-no-data behavior.
+   */
+  @AuraEnabled
+  public Boolean fallbackToRegionalBei { get; set; }
+
   /** Detect and report gaps without inserting any energy use records. */
   @AuraEnabled
   public Boolean isDryRun { get; set; }
@@ -106,6 +117,7 @@ public with sharing class BulkGapFillRequest {
     this.isDryRun = false;
     this.associateOrphans = false;
     this.skipAlreadyFilled = true;
+    this.fallbackToRegionalBei = false;
     this.batchSize = BulkGapFillConstants.DEFAULT_BATCH_SIZE;
   }
 

@@ -122,6 +122,15 @@
         checked={skipAlreadyFilled}
         onchange={handleSkipFilledChange}
       ></lightning-input>
+      <template lwc:if={isCurrentYearMethod}>
+        <lightning-input
+          type="checkbox"
+          label="Default to Regional BEI when no current year records exist for a fuel type"
+          field-level-help="If a footprint's fuel type has no current-year records to average, fall back to the Regional Building Energy Intensity benchmark instead of skipping it."
+          checked={fallbackToRegionalBei}
+          onchange={handleFallbackToRegionalBeiChange}
+        ></lightning-input>
+      </template>
     </lightning-layout-item>
 
     <lightning-layout-item size="12" padding="around-small">

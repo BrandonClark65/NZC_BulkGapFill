@@ -269,6 +269,56 @@ describe("c-bulk-gap-fill-configure", () => {
     expect(sent.manualDailyRate).toBe(12.5);
   });
 
+  it("only shows the Regional BEI fallback checkbox for Current Year Daily Average", async () => {
+    await emitOptions();
+    await chooseMethod("Manual");
+    expect(
+      inputs().find(
+        (i) =>
+          i.type === "checkbox" && i.label.includes("Default to Regional BEI")
+      )
+    ).toBeUndefined();
+
+    await chooseMethod("Current Year Daily Average");
+    expect(
+      inputs().find(
+        (i) =>
+          i.type === "checkbox" && i.label.includes("Default to Regional BEI")
+      )
+    ).toBeDefined();
+  });
+
+  it("sends fallbackToRegionalBei when the checkbox is checked", async () => {
+    await emitOptions();
+    await chooseMethod("Current Year Daily Average");
+
+    const fallback = inputs().find(
+      (i) =>
+        i.type === "checkbox" && i.label.includes("Default to Regional BEI")
+    );
+    change(fallback, { checked: true });
+    await settle();
+
+    launchRun.mockResolvedValue("a01000000000001AAA");
+    buttonNamed("Launch Gap Fill").click();
+    await settle();
+
+    const sent = JSON.parse(launchRun.mock.calls[0][0].requestJson);
+    expect(sent.fallbackToRegionalBei).toBe(true);
+  });
+
+  it("defaults fallbackToRegionalBei to false", async () => {
+    await emitOptions();
+    await chooseMethod("Current Year Daily Average");
+
+    launchRun.mockResolvedValue("a01000000000001AAA");
+    buttonNamed("Launch Gap Fill").click();
+    await settle();
+
+    const sent = JSON.parse(launchRun.mock.calls[0][0].requestJson);
+    expect(sent.fallbackToRegionalBei).toBe(false);
+  });
+
   it("only sends a manual rate when the method is Manual", async () => {
     await emitOptions();
     await chooseMethod("Manual");
