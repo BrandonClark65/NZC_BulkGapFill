@@ -83,17 +83,41 @@ describe("c-bulk-gap-fill-results", () => {
       (b) => b.label === label
     );
 
-  /** Captures the anchor handleExportCsv builds, without letting it navigate. */
+  /**
+   * Captures what handleExportCsv writes to a Blob and the real anchor it
+   * downloads through, without letting anything actually navigate. jsdom here
+   * ships no Blob content accessor and no URL.createObjectURL/revokeObjectURL
+   * at all, so both are stood up as plain mocks for the duration of one test
+   * and torn back down via restore().
+   */
   function captureDownload() {
-    const anchor = { href: "", download: "", click: jest.fn() };
-    jest.spyOn(document, "createElement").mockReturnValue(anchor);
-    return anchor;
-  }
+    const originalBlob = global.Blob;
+    const originalCreateObjectURL = URL.createObjectURL;
+    const originalRevokeObjectURL = URL.revokeObjectURL;
 
-  function csvFrom(anchor) {
-    return decodeURIComponent(
-      anchor.href.replace("data:text/csv;charset=utf-8,", "")
-    );
+    const capture = { anchor: null, csv: undefined };
+
+    global.Blob = jest.fn().mockImplementation((parts) => {
+      capture.csv = parts.join("");
+      return { __mockBlob: true };
+    });
+    URL.createObjectURL = jest.fn(() => "blob:mock-url");
+    URL.revokeObjectURL = jest.fn();
+
+    const clickSpy = jest
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(function mockClick() {
+        capture.anchor = this;
+      });
+
+    capture.restore = () => {
+      global.Blob = originalBlob;
+      URL.createObjectURL = originalCreateObjectURL;
+      URL.revokeObjectURL = originalRevokeObjectURL;
+      clickSpy.mockRestore();
+    };
+
+    return capture;
   }
 
   it("loads the run and its per-asset rows", async () => {
@@ -148,18 +172,17 @@ describe("c-bulk-gap-fill-results", () => {
 
   it("exports the loaded rows as CSV under the job name", async () => {
     await render();
-    const anchor = captureDownload();
+    const download = captureDownload();
 
     buttonNamed("Export CSV").click();
 
-    const csv = csvFrom(anchor);
-    const [header, row] = csv.split("\n");
+    const [header, row] = download.csv.split("\n");
     expect(header).toContain("Asset");
     expect(header).toContain("Status");
     expect(row).toContain("HQ");
     expect(row).toContain("Filled");
-    expect(anchor.download).toBe("bulk-gap-fill-BGF-0000001.csv");
-    expect(anchor.click).toHaveBeenCalled();
+    expect(download.anchor.download).toBe("bulk-gap-fill-BGF-0000001.csv");
+    download.restore();
   });
 
   /**
@@ -176,15 +199,16 @@ describe("c-bulk-gap-fill-results", () => {
       })
     ]);
     await render();
-    const anchor = captureDownload();
+    const download = captureDownload();
 
     buttonNamed("Export CSV").click();
 
-    const row = csvFrom(anchor).split("\n")[1];
+    const row = download.csv.split("\n")[1];
     expect(row).toContain('"The ""Big"" Warehouse"');
     expect(row).toContain(
       '"bad value for restricted picklist field: Manual, retry"'
     );
+    download.restore();
   });
 
   it("writes empty cells for missing values rather than the word null", async () => {
@@ -192,13 +216,14 @@ describe("c-bulk-gap-fill-results", () => {
       detail({ ErrorMessage__c: null, EnergyFilledUnit__c: undefined })
     ]);
     await render();
-    const anchor = captureDownload();
+    const download = captureDownload();
 
     buttonNamed("Export CSV").click();
 
-    const row = csvFrom(anchor).split("\n")[1];
+    const row = download.csv.split("\n")[1];
     expect(row).not.toContain("null");
     expect(row).not.toContain("undefined");
+    download.restore();
   });
 
   it("disables export when there is nothing to export", async () => {

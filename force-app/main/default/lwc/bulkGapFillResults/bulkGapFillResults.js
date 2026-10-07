@@ -173,6 +173,11 @@ export default class BulkGapFillResults extends LightningElement {
   /**
    * Exports the rows currently loaded. Note this is the loaded page set, not the
    * full server-side result, so paging through first gives a complete export.
+   *
+   * Downloads through a Blob URL on an anchor attached to the DOM rather than a
+   * data: URI clicked while detached — Lightning's Locker/LWS sandboxing can
+   * silently swallow a synthetic click on a detached anchor, especially for
+   * data: URIs, so nothing downloads and nothing throws.
    */
   handleExportCsv() {
     const header = this.columns.map((c) => c.label);
@@ -181,10 +186,15 @@ export default class BulkGapFillResults extends LightningElement {
     );
     const csv = [header, ...rows].map((row) => row.join(",")).join("\n");
 
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.href = `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`;
+    link.href = url;
     link.download = `bulk-gap-fill-${this.job?.Name || this.jobId}.csv`;
+    document.body.appendChild(link);
     link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   }
 
   csvCell(value) {
