@@ -178,6 +178,15 @@ export default class BulkGapFillResults extends LightningElement {
    * data: URI clicked while detached — Lightning's Locker/LWS sandboxing can
    * silently swallow a synthetic click on a detached anchor, especially for
    * data: URIs, so nothing downloads and nothing throws.
+   *
+   * The Blob's MIME type has to be application/octet-stream: Lightning Web
+   * Security checks it against a fixed allowlist that does not include
+   * text/csv at all, and rejects MIME parameters like charset outright, so
+   * either "text/csv" or "text/csv;charset=utf-8" throws "Lightning Web
+   * Security: Unsupported MIME type." application/octet-stream is the
+   * documented fallback for a type that is not on the list, and the .csv
+   * extension on the filename is still what drives how the browser treats
+   * the download.
    */
   handleExportCsv() {
     const header = this.columns.map((c) => c.label);
@@ -186,7 +195,7 @@ export default class BulkGapFillResults extends LightningElement {
     );
     const csv = [header, ...rows].map((row) => row.join(",")).join("\n");
 
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const blob = new Blob([csv], { type: "application/octet-stream" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
