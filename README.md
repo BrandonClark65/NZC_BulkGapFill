@@ -126,6 +126,36 @@ npm install
 sf project deploy start --source-dir force-app --target-org <your-org>
 ```
 
+Production runs the Apex tests as part of the deploy (`RunLocalTests` by default when
+the package contains Apex). Sandboxes don't by default, so a clean sandbox deploy says
+nothing about whether the tests pass.
+
+#### Apex API version is pinned to 66.0
+
+The Apex classes are deliberately on API 66.0, not the current release. From API 67.0
+(Summer '26), Apex runs SOQL, DML, and `Database` methods in **user mode by default**,
+so field-level security applies to every query and write. This code was written for
+the earlier default: the batch and `launchRun` write in system mode, and only the
+controller's read methods opt into `USER_MODE`.
+
+On 67.0, the production deploy fails. The test fixtures' plain `insert` and static
+SOQL run as the deploying user, who has no FLS on the new custom fields because
+`Bulk_Gap_Fill_Admin` is created by that same deploy and isn't assigned to anyone yet.
+The errors look like this:
+
+- `Operation failed due to fields being inaccessible on Sobject BulkGapFillJob__c`
+- `No such column 'CompletedAt__c' on entity 'BulkGapFillJob__c'`
+
+Leave the class `apiVersion` at 66.0 until the code is migrated to 67.0 deliberately.
+That means marking the batch's and `launchRun`'s writes `SYSTEM_MODE` (or deciding they
+should honour the launching user's permissions) and updating the test fixtures to
+match. The LWC bundles stay on the current version; the user-mode default applies
+only to Apex.
+
+`BulkGapFillControllerTest` creates its own test user in `@testSetup` and assigns it
+`Bulk_Gap_Fill_Admin` for the controller's `USER_MODE` reads, so the deploying user
+does not need the permission set for the tests to pass.
+
 Then assign the permission set:
 
 ```bash
