@@ -126,6 +126,57 @@ npm install
 sf project deploy start --source-dir force-app --target-org <your-org>
 ```
 
+That single-pass deploy is fine for a sandbox or scratch org. For the **first deploy
+to production**, use the two-pass deploy below.
+
+#### First deploy to production
+
+Production runs Apex tests as part of every deploy that includes Apex, and rolls the
+whole deploy back if any test fails. Deploying the two new custom objects, their
+fields, the permission set, and the Apex that exercises them in one transaction has
+failed with test errors that a sandbox deploy never showed:
+
+- `Operation failed due to fields being inaccessible on Sobject BulkGapFillJob__c`
+  on plain `insert` statements in the test fixtures
+- `No such column 'CompletedAt__c' on entity 'BulkGapFillJob__c'`, for a field that
+  is in the deploy
+
+Because a failed deploy rolls everything back, each retry is a first deploy again. To
+avoid this, deploy the schema first so it is committed before any test runs against it.
+
+**Pass 1: objects and layouts.** This pass contains no Apex, so production does not
+require tests:
+
+```bash
+sf project deploy start \
+  --source-dir force-app/main/default/objects \
+  --source-dir force-app/main/default/layouts \
+  --test-level NoTestRun \
+  --target-org <your-prod-org>
+```
+
+**Pass 2: everything else.** This pass contains Apex, so it runs tests:
+
+```bash
+sf project deploy start \
+  --source-dir force-app/main/default/permissionsets \
+  --source-dir force-app/main/default/tabs \
+  --source-dir force-app/main/default/flexipages \
+  --source-dir force-app/main/default/classes \
+  --source-dir force-app/main/default/lwc \
+  --test-level RunLocalTests \
+  --target-org <your-prod-org>
+```
+
+The permission set, tab, FlexiPage, and LWC must stay together in pass 2 because
+each one depends on the next: the permission set references the `Bulk_Gap_Fill`
+tab, the tab references the `Bulk_Gap_Fill` FlexiPage, and the FlexiPage references
+the `bulkGapFillWizard` component. Moving any of them into pass 1 fails that pass.
+
+The deploying user does not need `Bulk_Gap_Fill_Admin` for pass 2's tests.
+`BulkGapFillControllerTest` creates its own test user in `@testSetup`, assigns it
+the permission set, and runs its `USER_MODE` queries as that user.
+
 Then assign the permission set:
 
 ```bash
