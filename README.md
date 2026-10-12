@@ -144,14 +144,14 @@ failed with test errors that a sandbox deploy never showed:
 Because a failed deploy rolls everything back, each retry is a first deploy again. To
 avoid this, deploy the schema first so it is committed before any test runs against it.
 
-**Pass 1: objects and layouts.** This pass contains no Apex, so production does not
-require tests:
+**Pass 1: objects and layouts.** This pass contains no Apex, so production runs no
+tests for it by default. Leave `--test-level` off: production rejects `NoTestRun`
+even for a package without Apex, so the default is the only way to skip tests here.
 
 ```bash
 sf project deploy start \
   --source-dir force-app/main/default/objects \
   --source-dir force-app/main/default/layouts \
-  --test-level NoTestRun \
   --target-org <your-prod-org>
 ```
 
