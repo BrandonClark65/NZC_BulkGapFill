@@ -126,56 +126,35 @@ npm install
 sf project deploy start --source-dir force-app --target-org <your-org>
 ```
 
-That single-pass deploy is fine for a sandbox or scratch org. For the **first deploy
-to production**, use the two-pass deploy below.
+Production runs the Apex tests as part of the deploy (`RunLocalTests` by default when
+the package contains Apex). Sandboxes don't by default, so a clean sandbox deploy says
+nothing about whether the tests pass.
 
-#### First deploy to production
+#### Apex API version is pinned to 66.0
 
-Production runs Apex tests as part of every deploy that includes Apex, and rolls the
-whole deploy back if any test fails. Deploying the two new custom objects, their
-fields, the permission set, and the Apex that exercises them in one transaction has
-failed with test errors that a sandbox deploy never showed:
+The Apex classes are deliberately on API 66.0, not the current release. From API 67.0
+(Summer '26), Apex runs SOQL, DML, and `Database` methods in **user mode by default**,
+so field-level security applies to every query and write. This code was written for
+the earlier default: the batch and `launchRun` write in system mode, and only the
+controller's read methods opt into `USER_MODE`.
+
+On 67.0, the production deploy fails. The test fixtures' plain `insert` and static
+SOQL run as the deploying user, who has no FLS on the new custom fields because
+`Bulk_Gap_Fill_Admin` is created by that same deploy and isn't assigned to anyone yet.
+The errors look like this:
 
 - `Operation failed due to fields being inaccessible on Sobject BulkGapFillJob__c`
-  on plain `insert` statements in the test fixtures
-- `No such column 'CompletedAt__c' on entity 'BulkGapFillJob__c'`, for a field that
-  is in the deploy
+- `No such column 'CompletedAt__c' on entity 'BulkGapFillJob__c'`
 
-Because a failed deploy rolls everything back, each retry is a first deploy again. To
-avoid this, deploy the schema first so it is committed before any test runs against it.
+Leave the class `apiVersion` at 66.0 until the code is migrated to 67.0 deliberately.
+That means marking the batch's and `launchRun`'s writes `SYSTEM_MODE` (or deciding they
+should honour the launching user's permissions) and updating the test fixtures to
+match. The LWC bundles stay on the current version; the user-mode default applies
+only to Apex.
 
-**Pass 1: objects and layouts.** This pass contains no Apex, so production runs no
-tests for it by default. Leave `--test-level` off: production rejects `NoTestRun`
-even for a package without Apex, so the default is the only way to skip tests here.
-
-```bash
-sf project deploy start \
-  --source-dir force-app/main/default/objects \
-  --source-dir force-app/main/default/layouts \
-  --target-org <your-prod-org>
-```
-
-**Pass 2: everything else.** This pass contains Apex, so it runs tests:
-
-```bash
-sf project deploy start \
-  --source-dir force-app/main/default/permissionsets \
-  --source-dir force-app/main/default/tabs \
-  --source-dir force-app/main/default/flexipages \
-  --source-dir force-app/main/default/classes \
-  --source-dir force-app/main/default/lwc \
-  --test-level RunLocalTests \
-  --target-org <your-prod-org>
-```
-
-The permission set, tab, FlexiPage, and LWC must stay together in pass 2 because
-each one depends on the next: the permission set references the `Bulk_Gap_Fill`
-tab, the tab references the `Bulk_Gap_Fill` FlexiPage, and the FlexiPage references
-the `bulkGapFillWizard` component. Moving any of them into pass 1 fails that pass.
-
-The deploying user does not need `Bulk_Gap_Fill_Admin` for pass 2's tests.
-`BulkGapFillControllerTest` creates its own test user in `@testSetup`, assigns it
-the permission set, and runs its `USER_MODE` queries as that user.
+`BulkGapFillControllerTest` creates its own test user in `@testSetup` and assigns it
+`Bulk_Gap_Fill_Admin` for the controller's `USER_MODE` reads, so the deploying user
+does not need the permission set for the tests to pass.
 
 Then assign the permission set:
 
