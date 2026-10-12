@@ -304,10 +304,14 @@ private class BulkGapFillBatchRunTest {
   }
 
   /**
-   * With the fallback flag on, a footprint with no current-year records for a
-   * fuel type falls back to Regional BEI instead of being skipped, and the
-   * generated records are stamped and audited as Regional BEI — not the
-   * requested Current Year Daily Average.
+   * With the fallback flag on, a fuel type the run asks for but the footprint has
+   * no current-year records for falls back to Regional BEI instead of being
+   * skipped, and the generated records are stamped and audited as Regional BEI —
+   * not the requested Current Year Daily Average.
+   *
+   * The fuel type filter is what puts a record-less fuel type in scope at all:
+   * gap detection only looks at fuel types the footprint has records for, plus
+   * any named in `request.fuelTypes`. All three fallback tests set it.
    */
   @IsTest
   static void currentYearAverageFallsBackToRegionalBeiWhenNoCurrentYearData() {
@@ -330,6 +334,7 @@ private class BulkGapFillBatchRunTest {
     // has nothing to average — the whole reporting year is one gap.
 
     BulkGapFillRequest req = request(BulkGapFillConstants.METHOD_CURRENT_YEAR);
+    req.fuelTypes = new List<String>{ BulkGapFillTestData.FUEL_ELECTRICITY };
     req.fallbackToRegionalBei = true;
     BulkGapFillJob__c job = BulkGapFillTestData.job(req);
 
@@ -389,6 +394,7 @@ private class BulkGapFillBatchRunTest {
     update footprint;
 
     BulkGapFillRequest req = request(BulkGapFillConstants.METHOD_CURRENT_YEAR);
+    req.fuelTypes = new List<String>{ BulkGapFillTestData.FUEL_ELECTRICITY };
     req.fallbackToRegionalBei = false;
     BulkGapFillJob__c job = BulkGapFillTestData.job(req);
 
@@ -417,6 +423,7 @@ private class BulkGapFillBatchRunTest {
     // No current-year data and no Regional BEI lookup on the footprint.
 
     BulkGapFillRequest req = request(BulkGapFillConstants.METHOD_CURRENT_YEAR);
+    req.fuelTypes = new List<String>{ BulkGapFillTestData.FUEL_ELECTRICITY };
     req.fallbackToRegionalBei = true;
     BulkGapFillJob__c job = BulkGapFillTestData.job(req);
 
